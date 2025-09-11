@@ -1,0 +1,24 @@
+type formula
+type term
+
+function and: formula formula -> formula
+function or: formula formula -> formula
+function not: formula -> formula
+function impl: formula formula -> formula
+function atom : term -> formula
+
+binder forall: term. formula
+binder exists: term. formula
+
+rule and :          and(P0, P1)       ==> P0      ; P1
+rule or :           or(P0, P1)        ==> P0      | P1
+rule impl :         impl(P0, P1)      ==> not(P0) | P1
+rule not1 :         not(not(P))       ==> P
+rule not2 :         not(or(P0, P1))   ==> not(P0) ; not(P1)
+rule not3 :         not(impl(P0, P1)) ==> P0      ; not(P1)
+rule not4 :         not(and(P0, P1))  ==> not(P0) | not(P1)
+rule ax :           P0; not(P0)       ==X
+
+strategy saturate : ax || and || not1 || not2 || not3 || not4 || or || not2
+strategy prove :    saturate !
+

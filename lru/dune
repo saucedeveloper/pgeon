@@ -1,0 +1,11 @@
+(library
+  (name lru)
+  ; (package pgeon)
+  (synopsis "LRU cache")
+  (foreign_stubs
+    (language c)
+    (names mat)
+    (flags :standard -Ofast -Wno-return-type)
+    )
+  (modules lru)
+ )

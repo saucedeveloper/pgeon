@@ -1,0 +1,10 @@
+function a b c : -> formula
+function P : term -> formula
+function Q : term term -> formula
+
+and(a(), b()) ;
+
+or(not(a()), c()) ;
+
+or(not(c()), not(b())) ;
+
