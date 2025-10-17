@@ -8,7 +8,7 @@
 
 (package
  (name pgeon)
- (depends ocaml menhir)
+ (depends (ocaml (>= 5.1)) (menhir (>= 20201201)))
  )
 
 (map_workspace_root false)
