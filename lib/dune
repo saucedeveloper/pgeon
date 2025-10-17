@@ -1,7 +1,6 @@
 (library
  (name        pgeon)
- (libraries   lru menhirLib)
- ; (modules     log ast lexer parser strategy tableau term tree nparser)
+ (libraries   menhirLib)
 )
 
 (ocamllex lexer)

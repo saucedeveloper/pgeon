@@ -6,7 +6,8 @@ let rec equal a b =
   | Bvar i, Bvar j -> i = j
   | Fvar i, Fvar j -> i = j
   | App (fn, args), App (fn', args') ->
-      fn = fn' && List.length args = List.length args'
+      fn = fn'
+      && List.length args = List.length args'
       && List.for_all2 equal args args'
   | Bind (name, t), Bind (name', t') -> name = name' && equal t t'
   | _ -> false
@@ -51,9 +52,7 @@ let p_match t t' =
                 if equal existing t then dt else raise UnifyFailure
             | None ->
                 (n, t)
-                :: List.map
-                     (fun (n', t') -> (n', substitute [ (n, t) ] t'))
-                     dt
+                :: List.map (fun (n', t') -> (n', substitute [ (n, t) ] t')) dt
           in
           p_match dt tl tl'
     | Bind (b, t) :: tl, Bind (b', t') :: tl' ->
@@ -62,15 +61,3 @@ let p_match t t' =
         raise UnifyFailure
   in
   try Some (p_match [] t t') with UnifyFailure -> None
-
-let memo = Lru.create 512
-
-let memo_match t t' =
-  match Lru.get memo (t, t') with
-  | Some sigma -> sigma
-  | None ->
-      let sigma = p_match t t' in
-      Lru.put memo (t, t') sigma;
-      sigma
-
-let p_match = memo_match
