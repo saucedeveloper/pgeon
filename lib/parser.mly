@@ -79,6 +79,7 @@ entry:
     }
 
 type_list:
+  | { [] }
   | IDENT { [$1] }
   | type_list IDENT { $1 @ [$2] }
 
