@@ -19,6 +19,6 @@ rule not3 :         not(impl(P0, P1)) ==> P0      ; not(P1)
 rule not4 :         not(and(P0, P1))  ==> not(P0) | not(P1)
 rule ax :           P0; not(P0)       ==X
 
-strategy saturate : ax || and || not1 || not2 || not3 || not4 || or || not2
-strategy prove :    saturate !
-
+strategy reduce_once : ax || and || not1 || not2 || not3 || not4 || or || impl
+strategy reduce_fixed : (reduce_once ; reduce_fixed)?
+strategy prove : reduce_fixed

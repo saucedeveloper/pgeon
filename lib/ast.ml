@@ -78,38 +78,29 @@ let term_of_expr fvars funcs binds e =
   in
   term_of_expr [] e
 
-let main_strategy (ast : t) =
-  let rec subst_strategy (env : (string * Strategy.t) list)
-      (rules : string list) = function
-    | Rule name -> (
-        match List.assoc_opt name env with
-        | None -> (
-            match List.find_index (( = ) name) rules with
-            | Some i -> Strategy.Rule i
-            | None ->
-                Log.error
-                  "[strategy:lookup] status=error reason=unknown_rule name=%s\n"
-                  name;
-                exit 1)
-        | Some s -> s)
-    | AndThen (a, b) ->
-        Strategy.AndThen (subst_strategy env rules a, subst_strategy env rules b)
-    | OrElse (a, b) ->
-        Strategy.OrElse (subst_strategy env rules a, subst_strategy env rules b)
-    | Repeat s -> Strategy.Repeat (subst_strategy env rules s)
-    | Try s -> Strategy.OrElse (subst_strategy env rules s, Strategy.Skip)
-  in
+let compile_strategies (ast : t) =
   let rules = List.map (fun (rd : rule_decl) -> rd.name) ast.rules in
-  let env =
-    List.fold_left
-      (fun env (name, body) ->
-        let body = subst_strategy env rules body in
-        (name, body) :: env)
-      [] ast.strategies
+  let strategy_names = List.map fst ast.strategies in
+  let rec compile = function
+    | Rule name ->
+        if List.exists (( = ) name) strategy_names then Strategy.Call name
+        else (
+          match List.find_index (( = ) name) rules with
+          | Some i -> Strategy.Rule i
+          | None ->
+              Log.error
+                "[strategy:lookup] status=error reason=unknown_name name=%s\n"
+                name;
+              exit 1)
+    | AndThen (a, b) -> Strategy.AndThen (compile a, compile b)
+    | OrElse (a, b) -> Strategy.OrElse (compile a, compile b)
+    | Repeat s -> Strategy.Repeat (compile s)
+    | Try s -> Strategy.OrElse (compile s, Strategy.Skip)
   in
-  match List.nth_opt env 0 with
-  | None ->
+  let compiled = List.map (fun (name, body) -> (name, compile body)) ast.strategies in
+  match List.rev compiled with
+  | [] ->
       Log.error
         "[strategy:main] status=error reason=missing_main_strategy\n";
       exit 1
-  | Some s -> snd s
+  | (_, main) :: _ -> (compiled, main)

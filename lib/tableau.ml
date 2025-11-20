@@ -12,7 +12,11 @@ type frame = {
   strategy : Strategy.t list;
 }
 
-type t = { frames : frame list; rules : rule_def list }
+type t = {
+  frames : frame list;
+  rules : rule_def list;
+  strategy_env : (string * Strategy.t) list;
+}
 
 let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
     (problem : Term.t list) : t =
@@ -28,6 +32,7 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
         })
       ast.rules
   in
+  let strategy_env, main_strategy = Ast.compile_strategies ast in
   {
     frames =
       [
@@ -36,10 +41,11 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
           formulas = problem;
           fvars;
           funcs;
-          strategy = [ Ast.main_strategy ast ];
+          strategy = [ main_strategy ];
         };
       ];
     rules;
+    strategy_env;
   }
 
 let join_map sep f lst = String.concat sep (List.map f lst)
@@ -338,6 +344,7 @@ let string_of_strategy s =
     | Strategy.Fail -> "FAIL"
     | Strategy.Repeat s -> Printf.sprintf "(%s)!" (aux s)
     | Strategy.Rule i -> string_of_int i
+    | Strategy.Call name -> name
     | Strategy.Skip -> "SKIP"
   in
   let str = String.concat ",  " (List.map aux s) in
@@ -410,4 +417,18 @@ let rec prove tableau =
                     strategy = OrElse (AndThen (s, Repeat s), Skip) :: strategy;
                   }
                   :: frames;
-              })
+              }
+        | Call name :: strategy -> (
+            match List.assoc_opt name tableau.strategy_env with
+            | Some body ->
+                prove
+                  {
+                    tableau with
+                    frames =
+                      { frame with strategy = body :: strategy } :: frames;
+                  }
+            | None ->
+                Log.error
+                  "[strategy:call] status=error reason=unknown_strategy name=%s\n"
+                  name;
+                exit 1))
