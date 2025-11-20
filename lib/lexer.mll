@@ -28,7 +28,7 @@ rule token = parse
   | "-->"                     { ARROWDASH }
   | "==X"                     { ARROWX }
   | "->"                      { ARROW }
-  | "!"                       { BANG }
+  | "*"                       { STAR }
   | "?"                       { QUESTION }
   | ['A'-'Z' 'a'-'z' '_']['A'-'Z' 'a'-'z' '0'-'9' '_']* as id
                               { keywords id }

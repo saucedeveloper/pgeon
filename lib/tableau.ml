@@ -342,7 +342,7 @@ let string_of_strategy s =
     | Strategy.AndThen (s1, s2) -> Printf.sprintf "(%s ; %s)" (aux s1) (aux s2)
     | Strategy.OrElse (s1, s2) -> Printf.sprintf "(%s || %s)" (aux s1) (aux s2)
     | Strategy.Fail -> "FAIL"
-    | Strategy.Repeat s -> Printf.sprintf "(%s)!" (aux s)
+    | Strategy.Repeat s -> Printf.sprintf "(%s)*" (aux s)
     | Strategy.Rule i -> string_of_int i
     | Strategy.Call name -> name
     | Strategy.Skip -> "SKIP"

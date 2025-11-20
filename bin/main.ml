@@ -30,7 +30,7 @@ let rec string_of_strategy = function
       "(" ^ string_of_strategy s1 ^ "; " ^ string_of_strategy s2 ^ ")"
   | OrElse (s1, s2) ->
       "(" ^ string_of_strategy s1 ^ " | " ^ string_of_strategy s2 ^ ")"
-  | Repeat s -> "(" ^ string_of_strategy s ^ ")!"
+  | Repeat s -> "(" ^ string_of_strategy s ^ ")*"
   | Try s -> "(" ^ string_of_strategy s ^ ")?"
 
 let log_ast ast =

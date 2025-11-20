@@ -16,7 +16,7 @@ let empty_acc = {
 %token LPAREN RPAREN
 %token ARROWBIG ARROWDASH ARROWX
 %token ARROW
-%token BANG QUESTION
+%token STAR QUESTION
 %token EOF
 
 %start file
@@ -131,7 +131,7 @@ strat_or:
 
 strat_post:
   | strat_atom { $1 }
-  | strat_post BANG { Repeat $1 }
+  | strat_post STAR { Repeat $1 }
   | strat_post QUESTION { Try $1 }
 
 strat_atom:
