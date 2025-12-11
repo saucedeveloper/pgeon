@@ -19,6 +19,15 @@ rule not3 :         not(impl(P0, P1)) ==> P0      ; not(P1)
 rule not4 :         not(and(P0, P1))  ==> not(P0) | not(P1)
 rule ax :           P0; not(P0)       ==X
 
+rule forall : forall x. P ==> P[x <- @fresh()]
+
+rule exists : exists x. P --> P[x <- @cte()];
+
+vars B : branch
+vars T : tree
+
+rule unif : P ; not(Q) ; B | T --> (B | T)[unify(P, Q)]
+
 strategy reduce_once : ax || and || not1 || not2 || not3 || not4 || or || impl
 strategy reduce_all : reduce_once*
 strategy reduce_fixed : (reduce_once ; reduce_fixed)?

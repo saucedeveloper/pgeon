@@ -50,17 +50,6 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
 
 let join_map sep f lst = String.concat sep (List.map f lst)
 
-let string_of_term fvars funcs term =
-  let rec string_of_term = function
-    | Term.Bvar i -> string_of_int i
-    | Term.Fvar i -> (List.nth fvars) i
-    | Term.App (name, args) ->
-        Printf.sprintf "%s(%s)" (List.nth funcs name)
-          (join_map ", " string_of_term args)
-    | Term.Bind (name, t) -> Printf.sprintf "%d. %s" name (string_of_term t)
-  in
-  string_of_term term
-
 let perm_n lst k =
   let n = List.length lst in
   let arr = Array.of_list lst in
@@ -161,7 +150,7 @@ let find_match formulas branch rule =
   let perms = perm_n branch arity in
   let match_for perm =
     let candidates = List.map (List.nth formulas) perm in
-    match Term.p_match rule.input candidates with
+    match Term.rule_match candidates rule.input with
     | None -> None
     | Some sigma -> Some { sigma; inputs = perm }
   in
@@ -282,15 +271,7 @@ let remove_inputs tree branch anchor inputs =
   in
   apply_removals tree branch order
 
-let apply_rule fvars funcs (tree : Tree.t) (formulas : Term.t list)
-    (rule : rule_def) =
-  let string_of_term = string_of_term fvars funcs in
-  let rule_inputs = join_map "," string_of_term rule.input in
-  let rule_outputs =
-    String.concat "|"
-      (List.map (fun tl -> join_map "," string_of_term tl) rule.output)
-  in
-  Log.debug "[rule:select] inputs=[%s] outputs=[%s]\n" rule_inputs rule_outputs;
+let apply_rule (tree : Tree.t) (formulas : Term.t list) (rule : rule_def) =
   let branch, branch_index =
     match Tree.find_leftmost_branch tree with
     | None ->
@@ -298,10 +279,6 @@ let apply_rule fvars funcs (tree : Tree.t) (formulas : Term.t list)
         exit 1
     | Some (branch, index) -> (branch, index)
   in
-  let branch_terms =
-    join_map "," (fun i -> string_of_term (List.nth formulas i)) branch
-  in
-  Log.debug "[rule:branch] anchor=%d terms=[%s]\n" branch_index branch_terms;
   match find_match formulas branch rule with
   | None ->
       Log.debug "[rule:match] status=miss\n";
@@ -373,8 +350,7 @@ let rec prove tableau =
         | Fail :: _ -> prove { tableau with frames }
         | Rule i :: strategy -> (
             match
-              apply_rule frame.fvars frame.funcs frame.tree frame.formulas
-                (List.nth tableau.rules i)
+              apply_rule frame.tree frame.formulas (List.nth tableau.rules i)
             with
             | Some (tree, formulas) ->
                 prove

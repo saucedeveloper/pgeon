@@ -55,7 +55,7 @@ let term_of_expr fvars funcs binds e =
         | Some i -> Term.Bvar i
         | None -> (
             match List.find_index (( = ) n) fvars with
-            | Some i -> Term.Fvar i
+            | Some i -> Term.Mvar i
             | None ->
                 Log.error
                   "[ast:term] status=error reason=unknown_free_variable name=%s\n"
@@ -72,8 +72,8 @@ let term_of_expr fvars funcs binds e =
         match List.find_index (( = ) bn) binds with
         | Some bn -> Term.Bind (bn, term_of_expr (vn :: b_env) e)
         | None ->
-            Log.error
-              "[ast:term] status=error reason=unknown_binder name=%s\n" bn;
+            Log.error "[ast:term] status=error reason=unknown_binder name=%s\n"
+              bn;
             exit 1)
   in
   term_of_expr [] e
@@ -82,9 +82,9 @@ let compile_strategies (ast : t) =
   let rules = List.map (fun (rd : rule_decl) -> rd.name) ast.rules in
   let strategy_names = List.map fst ast.strategies in
   let rec compile = function
-    | Rule name ->
+    | Rule name -> (
         if List.exists (( = ) name) strategy_names then Strategy.Call name
-        else (
+        else
           match List.find_index (( = ) name) rules with
           | Some i -> Strategy.Rule i
           | None ->
@@ -97,10 +97,11 @@ let compile_strategies (ast : t) =
     | Repeat s -> Strategy.Repeat (compile s)
     | Try s -> Strategy.OrElse (compile s, Strategy.Skip)
   in
-  let compiled = List.map (fun (name, body) -> (name, compile body)) ast.strategies in
+  let compiled =
+    List.map (fun (name, body) -> (name, compile body)) ast.strategies
+  in
   match List.rev compiled with
   | [] ->
-      Log.error
-        "[strategy:main] status=error reason=missing_main_strategy\n";
+      Log.error "[strategy:main] status=error reason=missing_main_strategy\n";
       exit 1
   | (_, main) :: _ -> (compiled, main)
