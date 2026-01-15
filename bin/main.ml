@@ -5,6 +5,10 @@ module E = MenhirLib.ErrorReports
 module L = MenhirLib.LexerUtil
 module I = Parser.MenhirInterpreter
 
+let () = Generator.register (module Generator.Fresh)
+let () = Generator.register (module Generator.Cte)
+let () = Generator.register (module Generator.Skolem)
+
 let show text positions =
   E.extract text positions |> E.sanitize |> E.compress |> E.shorten 20
 
@@ -23,6 +27,13 @@ let rec string_of_expr = function
       Printf.sprintf "%s(%s)" n
         (String.concat ", " (List.map string_of_expr el))
   | LBinder (n, vn, e) -> Printf.sprintf "%s %s. %s" n vn (string_of_expr e)
+
+let rec string_of_tree_expr = function
+  | Ast.TreeLeaf e -> string_of_expr e
+  | Ast.TreeBranch el ->
+      "(" ^ String.concat "; " (List.map string_of_expr el) ^ ")"
+  | Ast.TreeUnion (a, b) ->
+      string_of_tree_expr a ^ " | " ^ string_of_tree_expr b
 
 let rec string_of_strategy = function
   | Rule s -> s
@@ -54,15 +65,21 @@ let log_ast ast =
         | NoInvertible -> "-->"
         | Invertible -> "==>"
       in
-      let lhs = String.concat "; " (List.map string_of_expr r.lhs) in
-      let rhs =
-        String.concat " | "
-          (List.map
-             (fun r -> String.concat "; " (List.map string_of_expr r))
-             r.rhs)
-      in
-      Log.debug "[parse:rule] name=%s arrow=%s lhs=[%s] rhs=[%s]\n" r.name arrow
-        lhs rhs)
+      (match r.tree_rule with
+      | Some tr ->
+          Log.debug "[parse:rule] name=%s arrow=%s tree_lhs=%s tree_rhs=%s\n"
+            r.name arrow (string_of_tree_expr tr.lhs_tree)
+            (string_of_tree_expr tr.rhs_tree)
+      | None ->
+          let lhs = String.concat "; " (List.map string_of_expr r.lhs) in
+          let rhs =
+            String.concat " | "
+              (List.map
+                 (fun r -> String.concat "; " (List.map string_of_expr r))
+                 r.rhs)
+          in
+          Log.debug "[parse:rule] name=%s arrow=%s lhs=[%s] rhs=[%s]\n" r.name
+            arrow lhs rhs))
     ast.Ast.rules;
   List.iter
     (fun ((str, s) : string * strategy_decl) ->

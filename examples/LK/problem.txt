@@ -1,0 +1,5 @@
+function a : -> term
+function P : term -> formula
+
+exists x. P(x);
+forall x. not(P(x))

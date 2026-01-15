@@ -8,6 +8,7 @@
     | "binder"    -> BINDER
     | "rule"      -> RULE
     | "strategy"  -> STRATEGY
+    | "where"     -> WHERE
     | id           -> IDENT id
 }
 
@@ -24,13 +25,20 @@ rule token = parse
   | "."                       { DOT }
   | "("                       { LPAREN }
   | ")"                       { RPAREN }
+  | "{"                       { LBRACE }
+  | "}"                       { RBRACE }
+  | "["                       { LBRACKET }
+  | "]"                       { RBRACKET }
+  | "="                       { EQ }
   | "==>"                     { ARROWBIG }
   | "-->"                     { ARROWDASH }
   | "==X"                     { ARROWX }
   | "->"                      { ARROW }
+  | "<-"                      { LARROW }
   | "*"                       { STAR }
   | "?"                       { QUESTION }
-  | ['A'-'Z' 'a'-'z' '_']['A'-'Z' 'a'-'z' '0'-'9' '_']* as id
+  | "@"                       { AT }
+  | ['A'-'Z' 'a'-'z' '_']['A'-'Z' 'a'-'z' '0'-'9' '_' '\'']* as id
                               { keywords id }
   | eof                       { EOF }
   | _ as c                    { failwith ("Unexpected char: " ^ String.make 1 c) }

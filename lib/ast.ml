@@ -9,11 +9,58 @@ type t = {
 and function_decl = { name : string; params_types : string list; t : string }
 and binder_decl = { name : string; variable_type : string; t : string }
 
+and tree_expr =
+  | TreeLeaf of expr
+  | TreeBranch of expr list
+  | TreeUnion of tree_expr * tree_expr
+
+and tree_rule = {
+  lhs_tree : tree_expr;
+  rhs_tree : tree_expr;
+  branch_tail : string option;
+  tree_var : string;
+}
+
+and generator_call = {
+  gen_name : string;
+  gen_args : expr list;
+}
+
+and subst_rhs =
+  | SR_Gen of generator_call
+  | SR_Expr of where_expr
+
+and subst_entry = {
+  target : string;
+  rhs : subst_rhs;
+}
+
+and where_base =
+  | WExpr of expr
+  | WTree of tree_expr
+
+and where_subst =
+  | SubstEntries of subst_entry list
+  | SubstRef of expr
+
+and where_expr = {
+  base : where_base;
+  substs : where_subst option;
+}
+
+and where_binding = {
+  var : string;
+  value : where_expr;
+}
+
 and rule_decl = {
   name : string;
   lhs : expr list;
   arrow : rule_type;
   rhs : expr list list;
+  where_clause : where_binding list;
+  meta_envs : (string * string list) list;
+  tree_rule : tree_rule option;
 }
 
 and rule_type = Close | NoInvertible | Invertible
@@ -30,6 +77,11 @@ and strategy_decl =
   | Repeat of strategy_decl
   | Try of strategy_decl
 
+let is_meta name =
+  String.length name > 0
+  && let c = name.[0] in
+     Char.uppercase_ascii c = c && Char.lowercase_ascii c <> c
+
 let symbol_fvar ast =
   let rec aux env acc = function
     | LVar n -> (
@@ -40,9 +92,44 @@ let symbol_fvar ast =
     | LFun (_, el) -> List.fold_left (aux env) acc el
     | LBinder (_, n, e) -> aux (n :: env) acc e
   in
+  let rec aux_tree env acc = function
+    | TreeLeaf e -> aux env acc e
+    | TreeBranch el -> List.fold_left (aux env) acc el
+    | TreeUnion (a, b) ->
+        let acc = aux_tree env acc a in
+        aux_tree env acc b
+  in
+  let aux_where_base env acc = function
+    | WExpr e -> aux env acc e
+    | WTree tree -> aux_tree env acc tree
+  in
+  let rec aux_where_expr env acc (w : where_expr) =
+    let acc = aux_where_base env acc w.base in
+    match w.substs with
+    | None -> acc
+    | Some (SubstEntries entries) ->
+        List.fold_left (aux_subst env) acc entries
+    | Some (SubstRef expr) -> aux env acc expr
+  and aux_subst env acc (s : subst_entry) =
+    match s.rhs with
+    | SR_Gen call ->
+        List.fold_left (aux env) acc call.gen_args
+    | SR_Expr wexpr -> aux_where_expr env acc wexpr
+  in
   let aux2 = List.fold_left (aux []) in
   List.fold_left
-    (fun acc r -> List.fold_left aux2 (aux2 acc r.lhs) r.rhs)
+    (fun acc r ->
+      let acc = List.fold_left aux2 (aux2 acc r.lhs) r.rhs in
+      let acc =
+        match r.tree_rule with
+        | None -> acc
+        | Some tr ->
+            let acc = aux_tree [] acc tr.lhs_tree in
+            aux_tree [] acc tr.rhs_tree
+      in
+      List.fold_left
+        (fun acc binding -> aux_where_expr [] acc binding.value)
+        acc r.where_clause)
     [] ast.rules
 
 let symbol_func ast = List.map (fun (f : function_decl) -> f.name) ast.functions

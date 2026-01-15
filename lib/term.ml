@@ -10,11 +10,40 @@ type t =
 
 let equal (a : t) b = a = b
 
+let rec to_string = function
+  | Bvar i -> Printf.sprintf "B%d" i
+  | Fvar i -> Printf.sprintf "F%d" i
+  | Mvar i -> Printf.sprintf "M%d" i
+  | App (name, tl) ->
+      let args =
+        match tl with
+        | [] -> ""
+        | _ ->
+            let inner = List.map to_string tl |> String.concat ", " in
+            Printf.sprintf "(%s)" inner
+      in
+      Printf.sprintf "f%d%s" name args
+  | Bind (name, t) -> Printf.sprintf "bind%d(%s)" name (to_string t)
+
 let rec occurs n = function
   | Bvar _ | Fvar _ -> false
   | Mvar n' -> n = n'
   | App (_, p) -> List.exists (occurs n) p
   | Bind (_, t) -> occurs n t
+
+let rec occurs_fvar n = function
+  | Fvar n' -> n = n'
+  | Bvar _ -> false
+  | Mvar _ -> false
+  | App (_, tl) -> List.exists (occurs_fvar n) tl
+  | Bind (_, t) -> occurs_fvar n t
+
+let rec shift delta cutoff = function
+  | Bvar i -> if i >= cutoff then Bvar (i + delta) else Bvar i
+  | Fvar _ as t -> t
+  | Mvar _ as t -> t
+  | App (name, tl) -> App (name, List.map (shift delta cutoff) tl)
+  | Bind (name, t) -> Bind (name, shift delta (cutoff + 1) t)
 
 let var_open u t =
   let rec var_open k u = function
@@ -31,15 +60,58 @@ let rec substitute subs = function
   | App (name, tl) -> App (name, List.map (substitute subs) tl)
   | Bind (name, t) -> Bind (name, substitute subs t)
 
+let subst_bvar term target replacement =
+  let rec aux depth = function
+    | Bvar i -> if i = target + depth then shift depth 0 replacement else Bvar i
+    | Fvar _ as t -> t
+    | Mvar _ as t -> t
+    | App (name, tl) -> App (name, List.map (aux depth) tl)
+    | Bind (name, t) -> Bind (name, aux (depth + 1) t)
+  in
+  aux 0 term
+
+let rec subst_fvar subs = function
+  | Bvar _ as t -> t
+  | Fvar n -> (
+      match List.assoc_opt n subs with Some t -> t | None -> Fvar n)
+  | Mvar _ as t -> t
+  | App (name, tl) -> App (name, List.map (subst_fvar subs) tl)
+  | Bind (name, t) -> Bind (name, subst_fvar subs t)
+
+let compose_fvar_subst subs new_subs =
+  let add_binding acc (var, term) =
+    let term = subst_fvar acc term in
+    if occurs_fvar var term then (
+      Log.error
+        "[term:subst] status=error reason=occurs_check_failed var=F%d\n" var;
+      raise (Invalid_argument "compose_fvar_subst"))
+    else
+      let acc =
+        List.map (fun (v, t) -> (v, subst_fvar [ (var, term) ] t)) acc
+      in
+      (var, term) :: acc
+  in
+  List.fold_left add_binding subs new_subs
+
 let rule_match t t' =
+  (* TODO: remove exception-based control flow *)
   let exception UnifyFailure in
   let rec rule_match dt = function
     | [], [] -> dt
     | Bvar i :: tl, Bvar j :: tl' ->
         if i = j then rule_match dt (tl, tl') else raise UnifyFailure
     | Bvar _ :: _, _ | _, Bvar _ :: _ -> raise UnifyFailure
-    | _, Fvar _ :: _ ->
-        Log.error "unexpected free variable in rule\n";
+    | cand :: _, Fvar n :: _ ->
+        Log.error
+          "[rule:match] status=error reason=unexpected_free_variable \
+           candidate=%s pattern=F%d\n"
+          (to_string cand) n;
+        raise UnifyFailure
+    | [], Fvar n :: _ ->
+        Log.error
+          "[rule:match] status=error reason=unexpected_free_variable \
+           candidate=empty pattern=F%d\n"
+          n;
         raise UnifyFailure
     | Mvar _ :: _, _ ->
         Log.error "unexpected meta variable in tableau\n";
@@ -58,3 +130,28 @@ let rule_match t t' =
     | _ -> raise UnifyFailure
   in
   try Some (rule_match [] (t, t')) with UnifyFailure -> None
+
+let unify t1 t2 =
+  let exception UnifyFailure in
+  let bind subs var term =
+    try compose_fvar_subst subs [ (var, term) ]
+    with Invalid_argument _ -> raise UnifyFailure
+  in
+  let rec unify_terms subs t1 t2 =
+    let t1 = subst_fvar subs t1 in
+    let t2 = subst_fvar subs t2 in
+    match (t1, t2) with
+    | Fvar x, Fvar y when x = y -> subs
+    | Fvar x, _ -> bind subs x t2
+    | _, Fvar y -> bind subs y t1
+    | Mvar _, _ | _, Mvar _ ->
+        Log.error "[term:unify] status=error reason=unexpected_meta_variable\n";
+        raise UnifyFailure
+    | Bvar i, Bvar j ->
+        if i = j then subs else raise UnifyFailure
+    | App (f, args), App (g, args') when f = g && List.length args = List.length args' ->
+        List.fold_left2 unify_terms subs args args'
+    | Bind (b, t1), Bind (b', t2) when b = b' -> unify_terms subs t1 t2
+    | _ -> raise UnifyFailure
+  in
+  try Some (unify_terms [] t1 t2) with UnifyFailure -> None
