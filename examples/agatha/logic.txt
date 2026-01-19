@@ -1,0 +1,35 @@
+type formula
+type person
+
+function not  : formula -> formula
+function and  : formula formula -> formula
+function or   : formula formula -> formula
+
+binder forall : person. formula
+binder exists : person. formula
+
+rule ax  : P ; not(P) ==X
+rule and : and(P, Q)  ==> P ; Q
+rule or  : or(P, Q)   ==> P | Q
+rule notand : not(and(P, Q)) ==> not(P) | not(Q)
+rule notor  : not(or(P, Q))  ==> not(P) ; not(Q)
+rule notnot : not(not(P))    ==> P
+
+rule forall : forall x. P ==> Q
+where {
+  Q = P[x <- @fresh()]
+}
+
+rule notexists : not(exists x. P) ==> not(Q)
+where {
+  Q = P[x <- @fresh()]
+}
+
+rule exists : exists x. P ==> Q
+where {
+  Q = P[x <- @skolem()]
+}
+
+strategy inv : ax || notnot || and || notor || or || notand
+strategy notinv : forall || notexists || exists
+strategy prove : (inv*; notinv) *

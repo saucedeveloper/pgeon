@@ -1,0 +1,33 @@
+function agatha : -> person
+function butler : -> person
+function charles : -> person
+
+function lives  : person -> formula
+function hates  : person person -> formula
+function richer : person person -> formula
+function killed : person person -> formula
+
+lives(agatha);
+lives(butler);
+lives(charles);
+
+exists x. killed(x, agatha);
+
+forall x. or(not(killed(x, agatha)), lives(x));
+forall x. or(not(killed(x, agatha)), hates(x, agatha));
+forall x. or(not(killed(x, agatha)), not(richer(x, agatha)));
+
+forall x. exists y. hates(x, y);
+forall x. exists y. not(hates(x, y));
+
+hates(agatha, agatha);
+hates(agatha, charles);
+
+forall x. or(not(hates(agatha, x)), not(hates(charles, x)));
+forall x. or(not(hates(agatha, x)), hates(butler, x));
+forall x. or(richer(x, agatha), hates(butler, x));
+
+not(richer(butler, agatha));
+not(richer(charles, agatha));
+
+not(killed(agatha, agatha))
