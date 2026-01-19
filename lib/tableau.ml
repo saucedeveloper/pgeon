@@ -455,17 +455,32 @@ let eval_where_bindings env ctx bindings =
 
 let find_match formulas branch pattern =
   let arity = List.length pattern in
-  let perms = perm_n branch arity in
-  let match_for perm =
-    let candidates = List.map (List.nth formulas) perm in
-    Log.debug "[rule:match:try] candidates=[%s] pattern=[%s]\n"
-      (String.concat ", " (List.map string_of_term candidates))
-      (String.concat ", " (List.map string_of_term pattern));
-    match Term.rule_match candidates pattern with
-    | None -> None
-    | Some sigma -> Some { sigma; inputs = perm }
+  let perms = ref (perm_n branch arity) in
+  let current : (int list * ( (Term.name * Term.t) list) Term.generator) option ref =
+    ref None
   in
-  List.find_map match_for perms
+  let rec next () =
+    match !current with
+    | Some (perm, gen) -> (
+        match gen () with
+        | Some sigma -> Some { sigma; inputs = perm }
+        | None ->
+            current := None;
+            next ())
+    | None -> (
+        match !perms with
+        | [] -> None
+        | perm :: rest ->
+            perms := rest;
+            let candidates = List.map (List.nth formulas) perm in
+            Log.debug "[rule:match:try] candidates=[%s] pattern=[%s]\n"
+              (String.concat ", " (List.map string_of_term candidates))
+              (String.concat ", " (List.map string_of_term pattern));
+            let gen = Term.rule_match_gen candidates pattern in
+            current := Some (perm, gen);
+            next ())
+  in
+  next
 
 let term_in_branch formulas branch term =
   List.exists
@@ -582,7 +597,8 @@ let remove_inputs tree branch anchor inputs =
   in
   apply_removals tree branch order
 
-let apply_formula_rule (frame : frame) (rule : formula_rule) =
+let apply_formula_rule (frame : frame) (rule : formula_rule)
+    (rest_strategy : Strategy.t list) =
   let tree = frame.tree in
   let formulas = frame.formulas in
   let branch, branch_index =
@@ -592,88 +608,110 @@ let apply_formula_rule (frame : frame) (rule : formula_rule) =
         exit 1
     | Some (branch, index) -> (branch, index)
   in
-  match find_match formulas branch rule.input with
-  | None ->
-      Log.debug "[rule:match] status=miss\n";
-      None
-  | Some { sigma; inputs } -> (
-      match rule.rule_t with
-      | Close ->
-          Log.debug "[rule:close] anchor=%d status=success\n" branch_index;
-          Some (Tree.close tree branch_index, formulas, frame.next_fvar)
-      | rule_kind -> (
-          let matched_inputs = List.map (List.nth formulas) inputs in
-          let env = env_of_sigma sigma in
-          let next_fvar = ref frame.next_fvar in
-          let make_fvar () =
-            let id = !next_fvar in
-            incr next_fvar;
-            Term.Fvar id
-          in
-          let metas_map =
-            List.fold_left
-              (fun acc (k, v) -> Generator.IntMap.add k v acc)
-              Generator.IntMap.empty (IntMap.bindings env)
-          in
-          let ctx : Generator.ctx =
-            {
-              inputs = matched_inputs;
-              env =
-                {
-                  metas = metas_map;
-                  fvars = Generator.IntMap.empty;
-                  scope = [];
-                  named = Generator.StringMap.empty;
-                };
-              make_fvar;
-              make_symbol =
-                (fun ~arity args ->
-                  let id = !symbol_counter in
-                  incr symbol_counter;
-                  Term.App (Hashtbl.hash (arity, id), args));
-            }
-          in
-          match eval_where_bindings env ctx rule.where_bindings with
-          | None ->
-              Log.debug
-                "[rule:apply] status=abort reason=where_failed anchor=%d\n"
-                branch_index;
-              None
-          | Some env ->
-              let sigma_all = env_bindings env in
-              let output_instance = instantiate_outputs sigma_all rule.output in
-              let branch_ctx =
-                match rule_kind with
-                | Invertible -> remove_inputs tree branch branch_index inputs
-                | NoInvertible -> Some { tree; branch; anchor = branch_index }
-                | Close -> None
-              in
-              (match branch_ctx with
-              | None ->
-                  Log.debug
-                    "[rule:apply] status=abort reason=prune_failed anchor=%d \
-                     inputs=[%s]\n"
-                    branch_index
-                  (join_map "," string_of_int inputs);
-                  None
-              | Some ctx ->
-                  if
-                    not
-                      (has_new_formula formulas ctx.branch output_instance)
-                  then (
+  let next_match = find_match formulas branch rule.input in
+  let rec collect acc =
+    match next_match () with
+    | None ->
+        if acc = [] then Log.debug "[rule:match] status=miss\n";
+        List.rev acc
+    | Some { sigma; inputs } -> (
+        match rule.rule_t with
+        | Close ->
+            Log.debug "[rule:close] anchor=%d status=success\n" branch_index;
+            let new_frame =
+              {
+                frame with
+                tree = Tree.close tree branch_index;
+                strategy = rest_strategy;
+              }
+            in
+            collect (new_frame :: acc)
+        | rule_kind ->
+            let matched_inputs = List.map (List.nth formulas) inputs in
+            let env = env_of_sigma sigma in
+            let next_fvar = ref frame.next_fvar in
+            let make_fvar () =
+              let id = !next_fvar in
+              incr next_fvar;
+              Term.Fvar id
+            in
+            let metas_map =
+              List.fold_left
+                (fun acc (k, v) -> Generator.IntMap.add k v acc)
+                Generator.IntMap.empty (IntMap.bindings env)
+            in
+            let ctx : Generator.ctx =
+              {
+                inputs = matched_inputs;
+                env =
+                  {
+                    metas = metas_map;
+                    fvars = Generator.IntMap.empty;
+                    scope = [];
+                    named = Generator.StringMap.empty;
+                  };
+                make_fvar;
+                make_symbol =
+                  (fun ~arity args ->
+                    let id = !symbol_counter in
+                    incr symbol_counter;
+                    Term.App (Hashtbl.hash (arity, id), args));
+              }
+            in
+            (match eval_where_bindings env ctx rule.where_bindings with
+            | None ->
+                Log.debug
+                  "[rule:apply] status=abort reason=where_failed anchor=%d\n"
+                  branch_index;
+                collect acc
+            | Some env_result ->
+                let sigma_all = env_bindings env_result in
+                let output_instance = instantiate_outputs sigma_all rule.output in
+                let branch_ctx =
+                  match rule_kind with
+                  | Invertible -> remove_inputs tree branch branch_index inputs
+                  | NoInvertible ->
+                      Some { tree; branch; anchor = branch_index }
+                  | Close -> None
+                in
+                (match branch_ctx with
+                | None ->
                     Log.debug
-                      "[rule:apply] status=skip reason=no_new_formula \
-                       anchor=%d\n"
-                      ctx.anchor;
-                    None)
-                  else
-                    (match
-                       push_formulas ctx.tree formulas ctx.branch
-                         output_instance ctx.anchor
-                     with
-                    | None -> None
-                    | Some (new_tree, new_formulas) ->
-                        Some (new_tree, new_formulas, !next_fvar)))))
+                      "[rule:apply] status=abort reason=prune_failed anchor=%d \
+                       inputs=[%s]\n"
+                      branch_index
+                      (join_map "," string_of_int inputs);
+                    collect acc
+                | Some ctx_branch ->
+                    if
+                      not
+                        (has_new_formula formulas ctx_branch.branch
+                           output_instance)
+                    then (
+                      Log.debug
+                        "[rule:apply] status=skip reason=no_new_formula \
+                         anchor=%d\n"
+                        ctx_branch.anchor;
+                      collect acc)
+                    else
+                      match
+                        push_formulas ctx_branch.tree formulas
+                          ctx_branch.branch output_instance ctx_branch.anchor
+                      with
+                      | None -> collect acc
+                      | Some (new_tree, new_formulas) ->
+                          let new_frame =
+                            {
+                              frame with
+                              tree = new_tree;
+                              formulas = new_formulas;
+                              next_fvar = !next_fvar;
+                              strategy = rest_strategy;
+                            }
+                          in
+                          collect (new_frame :: acc))))
+  in
+  collect []
 
 type eval_tree =
   | EvalTreeVar of string
@@ -806,7 +844,8 @@ let eval_tree_where_bindings frame tree_rule named_trees sigma =
   in
   eval_bindings tree_rule.where_clause
 
-let apply_tree_rule (frame : frame) (rule : tree_rule) =
+let apply_tree_rule (frame : frame) (rule : tree_rule)
+    (rest_strategy : Strategy.t list) =
   let tree = frame.tree in
   let formulas = frame.formulas in
   let branch_indices, _ =
@@ -822,43 +861,48 @@ let apply_tree_rule (frame : frame) (rule : tree_rule) =
   let head_len = List.length rule.branch_pattern in
   if List.length branch_terms < head_len then (
     Log.debug "[tree:match] status=miss reason=short_branch\n";
-    None)
+    [])
   else
     let prefix_terms = take head_len branch_terms in
     Log.debug "[tree:prefix] branch=[%s] prefix=[%s]\n"
       (String.concat ", " (List.map string_of_int branch_indices))
       (string_of_term_list prefix_terms);
-    match Term.rule_match prefix_terms rule.branch_pattern with
-    | None ->
-        Log.debug
-          "[tree:match] status=miss prefix=[%s]\n"
-          (string_of_term_list prefix_terms);
-        None
-    | Some sigma -> (
-        let tail_terms = drop head_len branch_terms in
-        let named_trees =
-          let base =
-            Generator.StringMap.add rule.tree_var (EvalTreeVar rule.tree_var)
-              Generator.StringMap.empty
-          in
-          (match rule.branch_tail with
-          | Some tail_name ->
-              Generator.StringMap.add tail_name (EvalTreeBranch tail_terms) base
-          | None -> base)
-        in
-        match eval_tree_where_bindings frame rule named_trees sigma with
-        | None -> None
-        | Some state ->
-            let formulas =
-              List.map
-                (fun term ->
-                  term |> Term.substitute state.meta_subst
-                  |> Term.subst_fvar state.fvar_subst)
-                formulas
+    let sigma_gen = Term.rule_match_gen prefix_terms rule.branch_pattern in
+    let tail_terms = drop head_len branch_terms in
+    let rec collect acc =
+      match sigma_gen () with
+      | None -> List.rev acc
+      | Some sigma ->
+          let named_trees =
+            let base =
+              Generator.StringMap.add rule.tree_var (EvalTreeVar rule.tree_var)
+                Generator.StringMap.empty
             in
-            Log.debug "[tree:apply] status=ok\n";
-            Some (tree, formulas, frame.next_fvar)
-      )
+            (match rule.branch_tail with
+            | Some tail_name ->
+                Generator.StringMap.add tail_name (EvalTreeBranch tail_terms) base
+            | None -> base)
+          in
+          (match eval_tree_where_bindings frame rule named_trees sigma with
+          | None -> collect acc
+          | Some state ->
+              let new_formulas =
+                List.map
+                  (fun term ->
+                    term |> Term.substitute state.meta_subst
+                    |> Term.subst_fvar state.fvar_subst)
+                  formulas
+              in
+              let new_frame =
+                {
+                  frame with
+                  formulas = new_formulas;
+                  strategy = rest_strategy;
+                }
+              in
+              collect (new_frame :: acc))
+    in
+    collect []
 
 let string_of_strategy s =
   let rec aux = function
@@ -896,44 +940,22 @@ let rec prove tableau =
         | Fail :: _ -> prove { tableau with frames }
         | Rule i :: strategy -> (
             match List.nth tableau.rules i with
-            | FormulaRule rule -> (
-                match apply_formula_rule frame rule with
-                | Some (tree, formulas, next_fvar) ->
-                    prove
-                      {
-                        tableau with
-                        frames =
-                          {
-                            tree;
-                            formulas;
-                            fvars = frame.fvars;
-                            funcs = frame.funcs;
-                            binds = frame.binds;
-                            strategy;
-                            next_fvar;
-                          }
-                          :: frames;
-                      }
-                | None -> prove { tableau with frames })
-            | TreeRule rule -> (
-                match apply_tree_rule frame rule with
-                | Some (tree, formulas, next_fvar) ->
-                    prove
-                      {
-                        tableau with
-                        frames =
-                          {
-                            tree;
-                            formulas;
-                            fvars = frame.fvars;
-                            funcs = frame.funcs;
-                            binds = frame.binds;
-                            strategy;
-                            next_fvar;
-                          }
-                          :: frames;
-                      }
-                | None -> prove { tableau with frames }))
+            | FormulaRule rule ->
+                let new_frames = apply_formula_rule frame rule strategy in
+                let updated_frames =
+                  match new_frames with
+                  | [] -> frames
+                  | lst -> lst @ frames
+                in
+                prove { tableau with frames = updated_frames }
+            | TreeRule rule ->
+                let new_frames = apply_tree_rule frame rule strategy in
+                let updated_frames =
+                  match new_frames with
+                  | [] -> frames
+                  | lst -> lst @ frames
+                in
+                prove { tableau with frames = updated_frames })
         | AndThen (s1, s2) :: strategy ->
             prove
               {

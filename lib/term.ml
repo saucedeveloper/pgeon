@@ -10,21 +10,6 @@ type t =
 
 let equal (a : t) b = a = b
 
-let rec to_string = function
-  | Bvar i -> Printf.sprintf "B%d" i
-  | Fvar i -> Printf.sprintf "F%d" i
-  | Mvar i -> Printf.sprintf "M%d" i
-  | App (name, tl) ->
-      let args =
-        match tl with
-        | [] -> ""
-        | _ ->
-            let inner = List.map to_string tl |> String.concat ", " in
-            Printf.sprintf "(%s)" inner
-      in
-      Printf.sprintf "f%d%s" name args
-  | Bind (name, t) -> Printf.sprintf "bind%d(%s)" name (to_string t)
-
 let rec occurs n = function
   | Bvar _ | Fvar _ -> false
   | Mvar n' -> n = n'
@@ -44,6 +29,8 @@ let rec shift delta cutoff = function
   | Mvar _ as t -> t
   | App (name, tl) -> App (name, List.map (shift delta cutoff) tl)
   | Bind (name, t) -> Bind (name, shift delta (cutoff + 1) t)
+
+type 'a generator = unit -> 'a option
 
 let var_open u t =
   let rec var_open k u = function
@@ -93,43 +80,52 @@ let compose_fvar_subst subs new_subs =
   in
   List.fold_left add_binding subs new_subs
 
-let rule_match t t' =
-  (* TODO: remove exception-based control flow *)
-  let exception UnifyFailure in
-  let rec rule_match dt = function
-    | [], [] -> dt
-    | Bvar i :: tl, Bvar j :: tl' ->
-        if i = j then rule_match dt (tl, tl') else raise UnifyFailure
-    | Bvar _ :: _, _ | _, Bvar _ :: _ -> raise UnifyFailure
-    | cand :: _, Fvar n :: _ ->
-        Log.error
-          "[rule:match] status=error reason=unexpected_free_variable \
-           candidate=%s pattern=F%d\n"
-          (to_string cand) n;
-        raise UnifyFailure
-    | [], Fvar n :: _ ->
-        Log.error
-          "[rule:match] status=error reason=unexpected_free_variable \
-           candidate=empty pattern=F%d\n"
-          n;
-        raise UnifyFailure
-    | Mvar _ :: _, _ ->
-        Log.error "unexpected meta variable in tableau\n";
-        raise UnifyFailure
-    | App (f, p) :: tl, App (f', p') :: tl'
-      when f = f' && List.length p = List.length p' ->
-        rule_match dt (p @ tl, p' @ tl')
-    | Bind (b, t) :: tl, Bind (b', t') :: tl' when b = b' ->
-        rule_match dt (t :: tl, t' :: tl')
-    | t :: tl, Mvar n :: tl' ->
-        if occurs n t then raise UnifyFailure
-        else
-          let dt = List.map (fun (m, t') -> (m, substitute [ (n, t) ] t')) dt
-          and tl' = List.map (substitute [ (n, t) ]) tl' in
-          rule_match ((n, t) :: dt) (tl, tl')
-    | _ -> raise UnifyFailure
-  in
-  try Some (rule_match [] (t, t')) with UnifyFailure -> None
+let generator_of_list lst =
+  let state = ref lst in
+  fun () ->
+    match !state with
+    | [] -> None
+    | x :: xs ->
+        state := xs;
+        Some x
+
+let rec match_lists subs left right =
+  match (left, right) with
+  | [], [] -> [ subs ]
+  | Bvar i :: tl, Bvar j :: tl' ->
+      if i = j then match_lists subs tl tl' else []
+  | Bvar _ :: _, _ | _, Bvar _ :: _ -> []
+  | App (f, p) :: tl, App (f', p') :: tl'
+    when f = f' && List.length p = List.length p' ->
+      match_lists subs (p @ tl) (p' @ tl')
+  | Bind (b, t) :: tl, Bind (b', t') :: tl' when b = b' ->
+      match_lists subs (t :: tl) (t' :: tl')
+  | term :: tl, Mvar n :: tl' ->
+      if occurs n term then []
+      else
+        let subs' =
+          (n, term)
+          :: List.map (fun (m, t') -> (m, substitute [ (n, term) ] t')) subs
+        in
+        let tl'' = List.map (substitute [ (n, term) ]) tl' in
+        match_lists subs' tl tl''
+  | term :: tl, Fvar n :: tl' -> (
+      match compose_fvar_subst subs [ (n, term) ] with
+      | exception Invalid_argument _ -> []
+      | subs' ->
+          let tl'' = List.map (subst_fvar [ (n, term) ]) tl' in
+          match_lists subs' tl tl'')
+  | term :: tl, term' :: tl' ->
+      if equal term term' then match_lists subs tl tl' else []
+  | _ -> []
+
+let rule_match_gen left right =
+  match_lists [] left right |> generator_of_list
+
+let rule_match left right =
+  match rule_match_gen left right () with
+  | Some sigma -> Some sigma
+  | None -> None
 
 let unify t1 t2 =
   let exception UnifyFailure in
