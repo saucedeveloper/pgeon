@@ -24,7 +24,6 @@ eval $(opam env) # (only needed in a fresh shell)
 dune exec pgeon -- examples/LK/logic.txt examples/LK/problem.txt
 ```
 
-The first argument is a `.pgeon`-style logic specification and the second is a
-problem instance containing formulas to prove. Sample fixtures `logic.txt` and
-`problem.txt` are provided.
+The first argument is a `.pgeon`-style logic specification and the second is a problem instance containing formulas to prove.
+Some examples in examples/ directory are provided.
 
