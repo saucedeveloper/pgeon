@@ -80,47 +80,53 @@ let compose_fvar_subst subs new_subs =
   in
   List.fold_left add_binding subs new_subs
 
-let generator_of_list lst =
-  let state = ref lst in
-  fun () ->
-    match !state with
-    | [] -> None
-    | x :: xs ->
-        state := xs;
-        Some x
-
-let rec match_lists subs left right =
-  match (left, right) with
-  | [], [] -> [ subs ]
-  | Bvar i :: tl, Bvar j :: tl' ->
-      if i = j then match_lists subs tl tl' else []
-  | Bvar _ :: _, _ | _, Bvar _ :: _ -> []
-  | App (f, p) :: tl, App (f', p') :: tl'
-    when f = f' && List.length p = List.length p' ->
-      match_lists subs (p @ tl) (p' @ tl')
-  | Bind (b, t) :: tl, Bind (b', t') :: tl' when b = b' ->
-      match_lists subs (t :: tl) (t' :: tl')
-  | term :: tl, Mvar n :: tl' ->
-      if occurs n term then []
-      else
-        let subs' =
-          (n, term)
-          :: List.map (fun (m, t') -> (m, substitute [ (n, term) ] t')) subs
-        in
-        let tl'' = List.map (substitute [ (n, term) ]) tl' in
-        match_lists subs' tl tl''
-  | term :: tl, Fvar n :: tl' -> (
-      match compose_fvar_subst subs [ (n, term) ] with
-      | exception Invalid_argument _ -> []
-      | subs' ->
-          let tl'' = List.map (subst_fvar [ (n, term) ]) tl' in
-          match_lists subs' tl tl'')
-  | term :: tl, term' :: tl' ->
-      if equal term term' then match_lists subs tl tl' else []
-  | _ -> []
-
 let rule_match_gen left right =
-  match_lists [] left right |> generator_of_list
+  let stack = ref [ (left, right, []) ] in
+  let rec next () =
+    match !stack with
+    | [] -> None
+    | (left, right, subs) :: rest -> (
+        stack := rest;
+        match (left, right) with
+        | [], [] -> Some subs
+        | [], _ | _, [] -> next ()
+        | Bvar i :: tl, Bvar j :: tl' ->
+            if i = j then (
+              stack := (tl, tl', subs) :: !stack;
+              next ())
+            else next ()
+        | Bvar _ :: _, _ | _, Bvar _ :: _ -> next ()
+        | App (f, p) :: tl, App (f', p') :: tl'
+          when f = f' && List.length p = List.length p' ->
+            stack := (p @ tl, p' @ tl', subs) :: !stack;
+            next ()
+        | Bind (b, t) :: tl, Bind (b', t') :: tl' when b = b' ->
+            stack := (t :: tl, t' :: tl', subs) :: !stack;
+            next ()
+        | term :: tl, Mvar n :: tl' ->
+            if occurs n term then next ()
+            else
+              let subs' =
+                (n, term)
+                :: List.map (fun (m, t') -> (m, substitute [ (n, term) ] t')) subs
+              in
+              let tl'' = List.map (substitute [ (n, term) ]) tl' in
+              stack := (tl, tl'', subs') :: !stack;
+              next ()
+        | term :: tl, Fvar n :: tl' -> (
+            match compose_fvar_subst subs [ (n, term) ] with
+            | exception Invalid_argument _ -> next ()
+            | subs' ->
+                let tl'' = List.map (subst_fvar [ (n, term) ]) tl' in
+                stack := (tl, tl'', subs') :: !stack;
+                next ())
+        | term :: tl, term' :: tl' ->
+            if equal term term' then (
+              stack := (tl, tl', subs) :: !stack;
+              next ())
+            else next ())
+  in
+  fun () -> next ()
 
 let rule_match left right =
   match rule_match_gen left right () with
