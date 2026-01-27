@@ -1,0 +1,7 @@
+function a dummy : -> formula
+
+dummy() ;
+
+/* A ⇒ ¬¬A */
+
+right(imp(a(), not(not(a())))) ;

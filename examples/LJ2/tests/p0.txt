@@ -1,0 +1,7 @@
+function a b c dummy : -> formula
+
+dummy() ;
+
+/* (A ⇒ B ∧ C ) ⇒ (A ⇒ B) ∨ (A ⇒ C ) */
+
+right(imp(imp(a(), and(b(), c())), or(imp(a(), b()), imp(a(), c())))) ;

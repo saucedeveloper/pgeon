@@ -1,0 +1,7 @@
+function a b dummy : -> formula
+
+dummy() ;
+
+/* ¬(A ∧ B) ⇒ ¬A ∨ ¬B */
+
+right(imp(not(and(a(), b())), or(not(a()), not(b())))) ;

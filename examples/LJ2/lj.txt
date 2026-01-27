@@ -1,0 +1,46 @@
+type prop
+type formula
+
+function top : -> prop
+function bot : -> prop
+function not : prop -> prop
+function and : prop prop -> prop
+function or  : prop prop -> prop
+function imp : prop prop -> prop
+function equ : prop prop -> prop
+
+function left  : prop -> formula
+function right : prop -> formula
+
+rule ax : left(P0) ; right(P0) ==X
+rule top_ax : right(top()) ==X
+rule bot_ax : left(bot()) ==X
+rule not_right : right(not(P0)) ==> right(imp(P0, bot()))
+rule not_left : left(not(P0)) ==> left(imp(P0, bot()))
+rule equ_right : right(equ(P0, P1)) ==> right(and(imp(P0, P1), imp(P1, P0)))
+rule equ_left : left(equ(P0, P1)) ==> left(and(imp(P0, P1), imp(P1, P0)))
+rule and_right : right(and(P0, P1)) ==> right(P0) | right(P1)
+rule and_left : left(and(P0, P1)) ==> left(P0) ; left(P1)
+rule or_right1 : right(or(P0, P1)) ==> right(P0)
+rule or_right2 : right(or(P0, P1)) ==> right(P1)
+rule or_left : left(or(P0, P1)) ==> left(P0) | left(P1)
+rule imp_right : right(imp(P0, P1)) ==> left(P0) ; right(P1)
+rule imp_left1 : left(imp(P0, P1)) ; left(P0) ==> left(P0) ; left(P1)
+rule imp_left2 : left(imp(and(P0, P1), P2)) ==> left(imp(P0, imp (P1, P2)))
+rule imp_left3 : left(imp(or(P0, P1), P2)) ==>
+  left(imp(P0, P2)) ; left(imp(P1, P2))
+rule imp_left4 : left(imp(imp(P0, P1), P2)) ; right(P3) ==>
+  left(imp(P1, P2)) ; right(imp(P0, P1)) | left(P2) ; right(P3)
+rule imp_left5 : left(imp(top(), P0)) ==> left(P0)
+rule imp_left6 : left(imp(bot(), P0)) ==>
+rule imp_left7 : left(imp(not(P0), P1)) ==> left(imp(imp(P0, bot()), P1))
+rule imp_left8 : left(imp(equ(P0, P1), P2)) ==>
+  left(imp(and(imp(P0, P1), imp(P1, P0)), P2))
+
+strategy reduce_once : ax || top_ax || bot_ax || not_right || not_left ||
+  equ_right || equ_left || and_right || and_left || or_right1 || or_right2 ||
+  or_left || imp_right || imp_left1 || imp_left2 || imp_left3 || imp_left4 ||
+  imp_left5 || imp_left6 || imp_left7 || imp_left8
+strategy reduce_all : reduce_once*
+strategy reduce_fixed : (reduce_once ; reduce_fixed)?
+strategy prove : reduce_all ; reduce_fixed?
