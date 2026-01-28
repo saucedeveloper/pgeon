@@ -46,7 +46,7 @@ where {
   T' = ((P0; not(P1); B) | T)[S];
 }
 
-strategy ax : ax1 || ax2 || ax3 || ax4
+strategy ax : ax1 || ax2 ||  ax4
 strategy inv : ax || notnot || and || notor || or || notand
 strategy notinv : exists || notforall || forall || notexists
 strategy prove : ((ax *); (inv *); notinv) *

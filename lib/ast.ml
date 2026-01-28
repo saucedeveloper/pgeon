@@ -70,12 +70,19 @@ and expr =
   | LFun of string * expr list
   | LBinder of string * string * expr
 
+and limit_spec =
+  | LimitConst of int
+  | LimitDepth
+
 and strategy_decl =
   | Rule of string
   | AndThen of strategy_decl * strategy_decl
   | OrElse of strategy_decl * strategy_decl
   | Repeat of strategy_decl
+  | Do of int * strategy_decl
   | Try of strategy_decl
+  | Limit of limit_spec * strategy_decl
+  | Depth of strategy_decl
 
 let is_meta name =
   String.length name > 0
@@ -135,19 +142,29 @@ let symbol_fvar ast =
 let symbol_func ast = List.map (fun (f : function_decl) -> f.name) ast.functions
 let symbol_bind ast = List.map (fun (b : binder_decl) -> b.name) ast.binders
 
-let term_of_expr fvars funcs binds e =
+let term_of_expr fvars funcs zero_funcs binds e =
+  let zero_func_set = zero_funcs in
   let rec term_of_expr b_env = function
     | LVar n -> (
         match List.find_index (( = ) n) b_env with
         | Some i -> Term.Bvar i
-        | None -> (
-            match List.find_index (( = ) n) fvars with
-            | Some i -> Term.Mvar i
-            | None ->
-                Log.error
-                  "[ast:term] status=error reason=unknown_free_variable name=%s\n"
-                  n;
-                exit 1))
+        | None ->
+            if List.mem n zero_func_set then
+              match List.find_index (( = ) n) funcs with
+              | Some fn -> Term.App (fn, [])
+              | None ->
+                  Log.error
+                    "[ast:term] status=error reason=unknown_function name=%s\n"
+                    n;
+                  exit 1
+            else
+              match List.find_index (( = ) n) fvars with
+              | Some i -> Term.Mvar i
+              | None ->
+                  Log.error
+                    "[ast:term] status=error reason=unknown_free_variable name=%s\n"
+                    n;
+                  exit 1)
     | LFun (fn, el) -> (
         match List.find_index (( = ) fn) funcs with
         | Some fn -> Term.App (fn, List.map (term_of_expr b_env) el)
@@ -168,6 +185,10 @@ let term_of_expr fvars funcs binds e =
 let compile_strategies (ast : t) =
   let rules = List.map (fun (rd : rule_decl) -> rd.name) ast.rules in
   let strategy_names = List.map fst ast.strategies in
+  let compile_limit = function
+    | LimitConst n -> Strategy.LimitConst n
+    | LimitDepth -> Strategy.LimitDepth
+  in
   let rec compile = function
     | Rule name -> (
         if List.exists (( = ) name) strategy_names then Strategy.Call name
@@ -182,7 +203,19 @@ let compile_strategies (ast : t) =
     | AndThen (a, b) -> Strategy.AndThen (compile a, compile b)
     | OrElse (a, b) -> Strategy.OrElse (compile a, compile b)
     | Repeat s -> Strategy.Repeat (compile s)
+    | Do (count, body) ->
+        let compiled_body = compile body in
+        let rec bounded n =
+          if n <= 0 then Strategy.Skip
+         else
+            Strategy.OrElse
+              (Strategy.AndThen (compiled_body, bounded (n - 1)), Strategy.Skip)
+        in
+        bounded count
     | Try s -> Strategy.OrElse (compile s, Strategy.Skip)
+    | Limit (spec, body) ->
+        Strategy.Limit (compile_limit spec, compile body)
+    | Depth body -> Strategy.Depth (compile body)
   in
   let compiled =
     List.map (fun (name, body) -> (name, compile body)) ast.strategies

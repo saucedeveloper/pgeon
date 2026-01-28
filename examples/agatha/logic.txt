@@ -15,6 +15,12 @@ rule notand : not(and(P, Q)) ==> not(P) | not(Q)
 rule notor  : not(or(P, Q))  ==> not(P) ; not(Q)
 rule notnot : not(not(P))    ==> P
 
+rule fo_ax : (P0 ; not(P1) ; B) | T --> T'
+where {
+  S = unify(P0, P1);
+  T' = ((P0; not(P1); B) | T)[S];
+}
+
 rule forall : forall x. P ==> Q
 where {
   Q = P[x <- @fresh()]
@@ -30,6 +36,10 @@ where {
   Q = P[x <- @skolem()]
 }
 
-strategy inv : ax || notnot || and || notor || or || notand
-strategy notinv : forall || notexists || exists
-strategy prove : (inv*; notinv) *
+strategy inv : ax || notnot || and || notor || exists || or || notand
+strategy quant :
+  depth (
+    (limit depth (do 1 forall));
+    (limit depth (do 1 notexists))
+  )
+strategy prove : (inv*; quant)*

@@ -75,18 +75,25 @@ and expr =
   | LFun of string * expr list
   | LBinder of string * string * expr
 
+and limit_spec =
+  | LimitConst of int
+  | LimitDepth
+
 and strategy_decl =
   | Rule of string
   | AndThen of strategy_decl * strategy_decl
   | OrElse of strategy_decl * strategy_decl
   | Repeat of strategy_decl
+  | Do of int * strategy_decl
   | Try of strategy_decl
+  | Limit of limit_spec * strategy_decl
+  | Depth of strategy_decl
 
 val symbol_fvar : t -> string list
 val symbol_func : t -> string list
 val symbol_bind : t -> string list
 val term_of_expr :
-  string list -> string list -> string list -> expr -> Term.t
+  string list -> string list -> string list -> string list -> expr -> Term.t
 val is_meta : string -> bool
 val compile_strategies :
   t -> (string * Strategy.t) list * Strategy.t

@@ -120,7 +120,10 @@ type frame = {
   formulas : Term.t list;
   fvars : string list;
   funcs : string list;
+  zero_funcs : string list;
   binds : string list;
+  limit_stack : int option list;
+  depth_stack : int list;
   strategy : Strategy.t list;
   next_fvar : int;
   pending : pending option;
@@ -133,6 +136,7 @@ type t = {
 }
 
 let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
+    ~(zero_funcs : string list)
     (problem : Term.t list) : t =
   let binds = Ast.symbol_bind ast in
   let meta_index =
@@ -145,7 +149,7 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
       (wexpr : Ast.where_expr) =
     let base =
       match wexpr.base with
-      | Ast.WExpr e -> Ast.term_of_expr fvars funcs binds e
+      | Ast.WExpr e -> Ast.term_of_expr fvars funcs zero_funcs binds e
       | Ast.WTree _ ->
           Log.error
             "[rule:where] status=error reason=tree_expression_unsupported \
@@ -214,7 +218,11 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
     }
   and compile_subst_rhs rule_name meta_env_map = function
     | Ast.SR_Gen call ->
-        let args = List.map (Ast.term_of_expr fvars funcs binds) call.gen_args in
+        let args =
+          List.map
+            (Ast.term_of_expr fvars funcs zero_funcs binds)
+            call.gen_args
+        in
         CG_Gen { name = call.gen_name; args }
     | Ast.SR_Expr expr ->
         CG_Expr (compile_where_expr rule_name meta_env_map expr)
@@ -235,7 +243,9 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
                   exit 1
             in
             let branch_pattern =
-              List.map (Ast.term_of_expr fvars funcs binds) branch_exprs
+              List.map
+                (Ast.term_of_expr fvars funcs zero_funcs binds)
+                branch_exprs
             in
             TreeRule
               {
@@ -249,9 +259,13 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
               }
         | None ->
             let rule_name = rd.name in
-            let input = List.map (Ast.term_of_expr fvars funcs binds) rd.lhs in
+            let input =
+              List.map (Ast.term_of_expr fvars funcs zero_funcs binds) rd.lhs
+            in
             let output =
-              List.map (List.map (Ast.term_of_expr fvars funcs binds)) rd.rhs
+              List.map
+                (List.map (Ast.term_of_expr fvars funcs zero_funcs binds))
+                rd.rhs
             in
             let meta_env_map =
               List.fold_left
@@ -290,7 +304,10 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
           formulas = problem;
           fvars;
           funcs;
+          zero_funcs;
           binds;
+          limit_stack = [];
+          depth_stack = [];
           strategy = [ main_strategy ];
           next_fvar = 0;
           pending = None;
@@ -318,6 +335,37 @@ let init (ast : Ast.t) ~(fvars : string list) ~(funcs : string list)
 
 let join_map sep f lst = String.concat sep (List.map f lst)
 
+let current_limit frame =
+  match frame.limit_stack with
+  | [] -> None
+  | entry :: _ -> entry
+
+let decrement_limit = function
+  | [] -> []
+  | None :: rest -> None :: rest
+  | Some n :: rest when n > 0 -> Some (n - 1) :: rest
+  | Some _ :: rest -> Some 0 :: rest
+
+let pop_limit stack =
+  match stack with
+  | [] ->
+      Log.error
+        "[strategy:limit] status=error reason=underflow action=pop_limit\n";
+      exit 1
+  | _ :: rest -> rest
+
+let pop_depth stack =
+  match stack with
+  | [] ->
+      Log.error
+        "[strategy:depth] status=error reason=underflow action=pop_depth\n";
+      exit 1
+  | _ :: rest -> rest
+
+let current_depth frame =
+  match frame.depth_stack with
+  | [] -> None
+  | value :: _ -> Some value
 let perm_n lst k =
   let n = List.length lst in
   let arr = Array.of_list lst in
@@ -706,7 +754,7 @@ let execute_formula_match
           []
       | Some env_result ->
           let sigma_all = env_bindings env_result in
-          let output_instance = instantiate_outputs sigma_all rule.output in
+      let output_instance = instantiate_outputs sigma_all rule.output in
           let branch_ctx =
             match rule_kind with
             | Invertible -> remove_inputs tree branch branch_index inputs
@@ -785,7 +833,7 @@ let empty_tree_where_state ?(fvar_subst = [])
   { meta_subst = sigma; fvar_subst; named_substs; named_trees }
 
 let term_of_expr_in_frame frame expr =
-  Ast.term_of_expr frame.fvars frame.funcs frame.binds expr
+  Ast.term_of_expr frame.fvars frame.funcs frame.zero_funcs frame.binds expr
 
 let rec eval_tree_expr frame state tree =
   match tree with
@@ -940,7 +988,10 @@ let execute_tree_match
     rest_strategy
     (pending : tree_pending)
     sigma =
-  let formulas = frame.formulas in
+  let formulas = List.map (Term.substitute sigma) frame.formulas in
+  let pending =
+    { pending with tail_terms = List.map (Term.substitute sigma) pending.tail_terms }
+  in
   let named_trees =
     let base =
       Generator.StringMap.add rule.tree_var (EvalTreeVar rule.tree_var)
@@ -961,9 +1012,16 @@ let execute_tree_match
             |> Term.subst_fvar state.fvar_subst)
           formulas
       in
+      let anchor =
+        match List.rev pending.branch_indices with
+        | [] -> failwith "tree rule: empty branch indices"
+        | hd :: _ -> hd
+      in
+      let new_tree = Tree.close frame.tree anchor in
       [
         {
           frame with
+          tree = new_tree;
           formulas = new_formulas;
           strategy = rest_strategy;
           pending = None;
@@ -978,10 +1036,7 @@ let step_tree_rule frame rule_index rule rest_strategy =
       | None -> ([], None)
       | Some sigma ->
           let frames = execute_tree_match frame rule rest_strategy pending sigma in
-          let resume_frame =
-            { frame with pending = Some (PendingTree pending) }
-          in
-          (frames, Some resume_frame))
+          (frames, None))
 
 let string_of_strategy s =
   let rec aux = function
@@ -992,6 +1047,18 @@ let string_of_strategy s =
     | Strategy.Rule i -> string_of_int i
     | Strategy.Call name -> name
     | Strategy.Skip -> "SKIP"
+    | Strategy.Limit (bound, body) ->
+        let prefix =
+          match bound with
+          | Strategy.LimitConst n -> Printf.sprintf "limit %d" n
+          | Strategy.LimitDepth -> "limit depth"
+        in
+        Printf.sprintf "(%s %s)" prefix (aux body)
+    | Strategy.Depth body -> Printf.sprintf "depth(%s)" (aux body)
+    | Strategy.DepthIter (n, body) ->
+        Printf.sprintf "depth_iter(%d,%s)" n (aux body)
+    | Strategy.PopLimit -> "POP_LIMIT"
+    | Strategy.PopDepth -> "POP_DEPTH"
   in
   let str = String.concat ",  " (List.map aux s) in
   Printf.sprintf "[%s]" str
@@ -1017,38 +1084,143 @@ let rec prove tableau =
         | Skip :: strategy ->
             prove { tableau with frames = { frame with strategy } :: frames }
         | Fail :: _ -> prove { tableau with frames }
+        | Limit (bound, body) :: strategy ->
+            let limit_value =
+              match bound with
+              | Strategy.LimitConst n ->
+                  let n = if n < 0 then 0 else n in
+                  Some n
+              | Strategy.LimitDepth -> (
+                  match current_depth frame with
+                  | Some depth -> Some depth
+                  | None ->
+                      Log.error
+                        "[strategy:limit] status=error reason=no_depth_context\n";
+                      exit 1)
+            in
+            let frame =
+              {
+                frame with
+                limit_stack = limit_value :: frame.limit_stack;
+                strategy = body :: PopLimit :: strategy;
+              }
+            in
+            prove { tableau with frames = frame :: frames }
+        | PopLimit :: strategy ->
+            let limit_stack = pop_limit frame.limit_stack in
+            let frame = { frame with limit_stack; strategy } in
+            prove { tableau with frames = frame :: frames }
+        | Depth body :: strategy ->
+            let frame =
+              { frame with strategy = DepthIter (0, body) :: strategy }
+            in
+            prove { tableau with frames = frame :: frames }
+        | DepthIter (n, body) :: strategy ->
+            let next =
+              if n = Stdlib.max_int then Stdlib.max_int else n + 1
+            in
+            let frame =
+              {
+                frame with
+                depth_stack = n :: frame.depth_stack;
+                strategy =
+                  Limit (Strategy.LimitDepth, body)
+                  :: PopDepth
+                  :: DepthIter (next, body)
+                  :: strategy;
+              }
+            in
+            prove { tableau with frames = frame :: frames }
+        | PopDepth :: strategy ->
+            let depth_stack = pop_depth frame.depth_stack in
+            let frame = { frame with depth_stack; strategy } in
+            prove { tableau with frames = frame :: frames }
         | Rule i :: strategy -> (
-            match List.nth tableau.rules i with
-            | FormulaRule rule ->
-                let spawned, resume =
-                  step_formula_rule frame i rule strategy
-                in
-                let frames_with_resume =
-                  match resume with
-                  | Some resume_frame -> resume_frame :: frames
-                  | None -> frames
-                in
-                let updated_frames =
-                  match spawned with
-                  | [] -> frames_with_resume
-                  | lst -> lst @ frames_with_resume
-                in
-                prove { tableau with frames = updated_frames }
-            | TreeRule rule ->
-                let spawned, resume =
-                  step_tree_rule frame i rule strategy
-                in
-                let frames_with_resume =
-                  match resume with
-                  | Some resume_frame -> resume_frame :: frames
-                  | None -> frames
-                in
-                let updated_frames =
-                  match spawned with
-                  | [] -> frames_with_resume
-                  | lst -> lst @ frames_with_resume
-                in
-                prove { tableau with frames = updated_frames })
+            let limit_head = current_limit frame in
+            let exhausted =
+              match limit_head with
+              | Some n when n <= 0 -> true
+              | _ -> false
+            in
+            if exhausted then (
+              Log.debug
+                "[strategy:limit] status=skip reason=exhausted rule=%d\n" i;
+              let pending =
+                match frame.pending with
+                | Some (PendingFormula p) when p.rule_index = i -> None
+                | Some (PendingTree p) when p.rule_index = i -> None
+                | _ -> frame.pending
+              in
+              let frame = { frame with strategy; pending } in
+              prove { tableau with frames = frame :: frames })
+            else
+              match List.nth tableau.rules i with
+              | FormulaRule rule ->
+                  let spawned, resume =
+                    step_formula_rule frame i rule strategy
+                  in
+                  let success = spawned <> [] in
+                  let new_limit_stack =
+                    if success then decrement_limit frame.limit_stack
+                    else frame.limit_stack
+                  in
+                  let spawned =
+                    if success then
+                      List.map
+                        (fun fr -> { fr with limit_stack = new_limit_stack })
+                        spawned
+                    else spawned
+                  in
+                  let resume =
+                    match resume with
+                    | Some rf when success ->
+                        Some { rf with limit_stack = new_limit_stack }
+                    | other -> other
+                  in
+                  let frames_with_resume =
+                    match resume with
+                    | Some resume_frame -> resume_frame :: frames
+                    | None -> frames
+                  in
+                  let updated_frames =
+                    match spawned with
+                    | [] -> frames_with_resume
+                    | lst -> lst @ frames_with_resume
+                  in
+                  prove { tableau with frames = updated_frames }
+              | TreeRule rule ->
+                  let spawned, resume =
+                    step_tree_rule frame i rule strategy
+                  in
+                  let success = spawned <> [] in
+                  let new_limit_stack =
+                    if success then decrement_limit frame.limit_stack
+                    else frame.limit_stack
+                  in
+                  let spawned =
+                    if success then
+                      List.map
+                        (fun fr -> { fr with limit_stack = new_limit_stack })
+                        spawned
+                    else spawned
+                  in
+                  let resume =
+                    match resume with
+                    | Some rf when success ->
+                        Some { rf with limit_stack = new_limit_stack }
+                    | other -> other
+                  in
+                  let frames_with_resume =
+                    match resume with
+                    | Some resume_frame -> resume_frame :: frames
+                    | None -> frames
+                  in
+                  let updated_frames =
+                    match spawned with
+                    | [] -> frames_with_resume
+                    | lst -> lst @ frames_with_resume
+                  in
+                  prove { tableau with frames = updated_frames })
         | AndThen (s1, s2) :: strategy ->
             prove
               {
