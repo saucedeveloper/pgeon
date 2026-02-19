@@ -9,9 +9,6 @@
     | "rule"      -> RULE
     | "strategy"  -> STRATEGY
     | "where"     -> WHERE
-    | "do"        -> DO
-    | "depth"     -> DEPTH
-    | "limit"     -> LIMIT
     | id           -> IDENT id
 }
 
@@ -41,7 +38,6 @@ rule token = parse
   | "*"                       { STAR }
   | "?"                       { QUESTION }
   | "@"                       { AT }
-  | ['0'-'9']+ as digits      { INT (int_of_string digits) }
   | ['A'-'Z' 'a'-'z' '_']['A'-'Z' 'a'-'z' '0'-'9' '_' '\'']* as id
                               { keywords id }
   | eof                       { EOF }

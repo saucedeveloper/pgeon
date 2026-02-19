@@ -42,13 +42,7 @@ let rec string_of_strategy = function
   | OrElse (s1, s2) ->
       "(" ^ string_of_strategy s1 ^ " | " ^ string_of_strategy s2 ^ ")"
   | Repeat s -> "(" ^ string_of_strategy s ^ ")*"
-  | Do (n, s) -> "do " ^ string_of_int n ^ " " ^ string_of_strategy s
   | Try s -> "(" ^ string_of_strategy s ^ ")?"
-  | Limit (LimitConst n, s) ->
-      "limit " ^ string_of_int n ^ " " ^ string_of_strategy s
-  | Limit (LimitDepth, s) ->
-      "limit depth " ^ string_of_strategy s
-  | Depth s -> "depth " ^ string_of_strategy s
 
 let log_ast ast =
   List.iter (fun name -> Log.debug "[parse:type] name=%s\n" name) ast.Ast.types;
@@ -163,24 +157,11 @@ let () =
   let funcs =
     merge_unique (Ast.symbol_func ast) (Problem.function_names problem)
   in
-  let zero_funcs_logic =
-    List.map (fun (fd : function_decl) -> fd.name)
-      (List.filter (fun (fd : function_decl) -> fd.params_types = []) ast.functions)
-  in
-  let zero_funcs_problem =
-    List.map (fun (fd : function_decl) -> fd.name)
-      (List.filter
-         (fun (fd : function_decl) -> fd.params_types = [])
-         problem.Problem.functions)
-  in
-  let zero_funcs = merge_unique zero_funcs_logic zero_funcs_problem in
   let fvars =
     merge_unique (Ast.symbol_fvar ast) (Problem.symbol_fvar problem)
   in
   let binds = Ast.symbol_bind ast in
-  let term_of_expr = Ast.term_of_expr fvars funcs zero_funcs binds in
+  let term_of_expr = Ast.term_of_expr fvars funcs binds in
   let problem_terms = List.map term_of_expr problem.Problem.formulas in
-  let tableau =
-    Tableau.init ast ~fvars ~funcs ~zero_funcs problem_terms
-  in
+  let tableau = Tableau.init ast ~fvars ~funcs problem_terms in
   Tableau.prove tableau

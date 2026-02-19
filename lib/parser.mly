@@ -222,12 +222,9 @@ let extend_env_map env_map clause =
 %token LBRACE RBRACE LBRACKET RBRACKET
 %token EQ LARROW AT
 %token WHERE
-%token DO
-%token LIMIT DEPTH
 %token ARROWBIG ARROWDASH ARROWX
 %token ARROW
 %token STAR QUESTION
-%token <int> INT
 %token EOF
 
 %start file
@@ -417,10 +414,6 @@ strat_post:
 strat_atom:
   | IDENT { Rule $1 }
   | LPAREN strat_expr RPAREN { $2 }
-  | DO INT strat_atom { Do ($2, $3) }
-  | LIMIT INT strat_atom { Limit (Ast.LimitConst $2, $3) }
-  | LIMIT DEPTH strat_atom { Limit (Ast.LimitDepth, $3) }
-  | DEPTH strat_atom { Depth $2 }
 
 problem:
   | problem_functions problem_formulas EOF {
