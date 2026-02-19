@@ -1,0 +1,7 @@
+function P : term -> formula
+function a : -> term
+
+/* P(a) should have an open branch */
+
+P(a());
+

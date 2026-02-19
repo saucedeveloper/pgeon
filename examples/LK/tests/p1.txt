@@ -1,0 +1,7 @@
+function P : term -> formula
+
+/* ∀x P(x)  ∧  ∃x ¬P(x) */
+
+forall x. P(x);
+exists x. not(P(x));
+

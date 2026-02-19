@@ -1,0 +1,8 @@
+function P Q : term -> formula
+function a : -> term
+
+/* P(a) ∨ Q(a) ∧ ¬P(a) is satisfiable (set Q(a) true) */
+
+or(P(a()), Q(a()));
+not(P(a()));
+

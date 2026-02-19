@@ -14,6 +14,7 @@ type ctx = {
   make_fvar : unit -> Term.t;
   make_symbol : arity:int -> Term.t list -> Term.t;
 }
+
 type gval = V_string of string
 
 module type GEN = sig
@@ -24,7 +25,7 @@ end
 val registry : (string, ctx -> gval list -> Term.t option) Hashtbl.t
 val register : (module GEN) -> unit
 val find : string -> (ctx -> gval list -> Term.t option) option
-val eval : string -> ctx -> gval list -> Term.t option option
+val eval : string -> ctx -> gval list -> Term.t option
 
 module Fresh : sig
   val name : string
@@ -37,6 +38,11 @@ module Cte : sig
 end
 
 module Skolem : sig
+  val name : string
+  val run : ctx -> gval list -> Term.t option
+end
+
+module Inst : sig
   val name : string
   val run : ctx -> gval list -> Term.t option
 end

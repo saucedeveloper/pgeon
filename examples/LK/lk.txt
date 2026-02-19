@@ -1,0 +1,53 @@
+type formula
+type term
+
+function not  : formula -> formula
+function and  : formula formula -> formula
+function or   : formula formula -> formula
+function impl : formula formula -> formula
+
+binder forall : term. formula
+binder exists : term. formula
+
+rule rAxiom   : P ; not(P) ==X
+
+rule rAnd     : and(P, Q)       ==> P ; Q
+rule rOr      : or(P, Q)        ==> P | Q
+rule rImpl    : impl(P, Q)      ==> not(P) | Q
+rule rNotNot  : not(not(P))     ==> P
+rule rNotAnd  : not(and(P, Q))  ==> not(P) | not(Q)
+rule rNotOr   : not(or(P, Q))   ==> not(P) ; not(Q)
+rule rNotImpl : not(impl(P, Q)) ==> P ; not(Q)
+
+tree rule rClosure : (P0 ; not(P1) ; ...B) | ...T --> ...T'
+where {
+  T' = ((P0; not(P1); ...B) | ...T)[mge(P0, P1)]
+}
+
+rule rForall : forall x. P --> Q
+where {
+  Q = P[x <- @fresh()]
+}
+
+rule rNotForall : not(forall x. P) ==> not(Q)
+where {
+  Q = P[x <- @skolem()]
+}
+
+rule rNotExists : not(exists x. P) --> not(Q)
+where {
+  Q = P[x <- @fresh()]
+}
+
+rule rExists : exists x. P ==> Q
+where {
+  Q = P[x <- @skolem()]
+}
+
+strategy closure : rAxiom || (rClosure; rAxiom)
+strategy alpha : rAnd || rNotNot || rNotOr || rNotImpl
+strategy beta : rOr || rImpl || rNotAnd
+strategy delta : rExists || rNotForall
+strategy gamma : rForall!? ; rNotExists!?
+strategy prove : (closure || alpha || delta || beta || gamma)*
+

@@ -3,10 +3,10 @@
  (libraries   menhirLib)
 )
 
-(ocamllex lexer)
+(ocamllex
+ (modules lexer lexer2))
 
 (menhir
- (modules parser)
+ (modules parser parser2)
   (flags --table)
 )
-

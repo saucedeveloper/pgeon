@@ -7,15 +7,22 @@ type t =
   | App of name * t list
   | Bind of name * t
 
-val equal : t -> t -> bool
+type substitution_map = (name * t) list
+
+type substitution =
+  | MetaSubstitution of substitution_map
+  | FreeVarSubstitution of substitution_map
+
 val occurs : name -> t -> bool
+val equal : t -> t -> bool
 val var_open : t list -> t -> t
-val substitute : (name * t) list -> t -> t
-val subst_bvar : t -> int -> t -> t
-val subst_fvar : (name * t) list -> t -> t
-val compose_fvar_subst :
-  (name * t) list -> (name * t) list -> (name * t) list
-type 'a generator = unit -> 'a option
-val rule_match : t list -> t list -> (name * t) list option
-val rule_match_gen : t list -> t list -> (name * t) list generator
-val unify : t -> t -> (name * t) list option
+val substitute : substitution -> t -> t
+val match_rule : t list -> t list -> (int list * substitution) Seq.t
+val unify : t list -> t list -> substitution option
+val meta_substitution_add : substitution -> (name * t) -> substitution
+val merge_meta_substitutions :
+  substitution -> substitution -> substitution option
+val free_substitution_add : substitution -> (name * t) -> substitution
+val merge_free_substitutions :
+  substitution -> substitution -> substitution option
+val is_empty_substitution : substitution -> bool

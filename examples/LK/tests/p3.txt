@@ -1,0 +1,6 @@
+function P : term -> formula
+function Q : term -> formula
+function a b : -> term
+
+not(exists x. or(not(P(x)), and(P(a()), P(b()))))
+

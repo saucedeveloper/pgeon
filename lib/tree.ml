@@ -1,38 +1,63 @@
-type t = { node : int; childs : t list option }
+type t = {
+  next_branch_id : int;
+  branches : (int * int list) list;
+  formulas : Term.t list;
+}
 
-let init lst =
-  let rec init id = function
-    | [] ->
-        Log.error "[tree:init] status=error reason=empty_formula_list\n";
-        exit 1
-    | [ _ ] -> { node = id; childs = Some [] }
-    | _ :: tl -> { node = id; childs = Some [ init (id + 1) tl ] }
-  in
-  init 0 lst
+let init branch =
+  if branch = [] then
+    let _ = Log.error "[tree:init] status=error reason=empty_branch\n" in
+    failwith "empty_input_branch"
+  else
+    {
+      next_branch_id = 1;
+      branches = [ (0, List.init (List.length branch) Fun.id) ];
+      formulas = branch;
+    }
 
-let close t branch_index =
-  let rec aux t =
-    match t.childs with
-    | Some childs ->
-        if t.node = branch_index then { t with childs = None }
-        else { t with childs = Some (List.map aux childs) }
-    | None -> t
-  in
-  aux t
+let has_open_branches tree = List.length tree.branches > 0
 
-let find_leftmost_branch (tree : t) =
-  let rec dfs acc node =
-    match node.childs with
-    | None -> None
-    | Some [] -> Some (List.rev (node.node :: acc), node.node)
-    | Some childs ->
-        let rec search = function
-          | [] -> None
-          | child :: rest -> (
-              match dfs (node.node :: acc) child with
-              | None -> search rest
-              | some -> some)
-        in
-        search childs
+let get_open_branches tree =
+  Seq.unfold
+    (fun branches ->
+      match branches with
+      | [] -> None
+      | (id, indices) :: rest ->
+          let terms = List.map (List.nth tree.formulas) indices in
+          Some ((id, terms), rest))
+    tree.branches
+
+let close tree p =
+  let matched, remaining =
+    List.partition
+      (fun (_id, indices) ->
+        let terms = List.map (List.nth tree.formulas) indices in
+        p terms)
+      tree.branches
   in
-  dfs [] tree
+  let new_tree = { tree with branches = remaining } in
+  (new_tree, List.length matched > 0)
+
+(* remove the branch with the given id *)
+let remove tree branch_id =
+  let remaining =
+    List.filter (fun (id, _indices) -> id <> branch_id) tree.branches
+  in
+  { tree with branches = remaining }
+
+(* val add_branch : t -> Term.t list -> t *)
+let add_branch tree branch =
+  if branch = [] then
+    let _ = Log.error "[tree:add_branch] status=error reason=empty_branch\n" in
+    failwith "empty_input_branch"
+  else
+    let branch_id = tree.next_branch_id in
+    let indices = List.mapi (fun i _ -> i + List.length tree.formulas) branch in
+    let formulas = tree.formulas @ branch in
+    {
+      next_branch_id = branch_id + 1;
+      branches = (branch_id, indices) :: tree.branches;
+      formulas;
+    }
+
+let map_formulas f tree = { tree with formulas = List.map f tree.formulas }

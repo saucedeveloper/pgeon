@@ -1,0 +1,9 @@
+function P : term -> formula
+function Q : term -> formula
+
+/* ∀x (P(x) ∨ Q(x))  ∧  ∀x ¬P(x)  ∧  ∀x ¬Q(x) */
+
+forall x. or(P(x), Q(x));
+forall x. not(P(x));
+forall x. not(Q(x));
+

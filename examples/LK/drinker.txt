@@ -1,0 +1,4 @@
+function drinks : term -> formula
+
+/* drinker's paradox */
+not(exists x. impl(drinks(x), forall y. drinks(y)));

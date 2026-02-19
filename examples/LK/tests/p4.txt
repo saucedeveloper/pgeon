@@ -1,0 +1,10 @@
+function P : term -> formula
+function Q : term -> formula
+function a b : -> term
+
+P(a());
+P(b());
+not(Q(b()));
+forall x. or(Q(x), not(P(x)));
+
+

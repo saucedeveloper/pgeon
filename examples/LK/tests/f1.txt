@@ -1,0 +1,7 @@
+function P : term -> formula
+
+/* ∃x P(x) ∧ ¬∀x P(x) is satisfiable */
+
+exists x. P(x);
+not(forall x. P(x));
+

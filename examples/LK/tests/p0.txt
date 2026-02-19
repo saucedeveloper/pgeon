@@ -1,5 +1,8 @@
 function a : -> term
 function P : term -> formula
 
-exists x. P(x);
-forall x. not(P(x))
+/* P(a) ∧ ¬P(a) */
+
+P(a());
+not(P(a()));
+

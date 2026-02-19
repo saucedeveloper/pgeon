@@ -1,0 +1,6 @@
+function P Q R : -> formula
+
+/* ((P → Q)∧(Q → R)) → (P → R) */
+
+not(impl(and(impl(P(), Q()), impl(Q(), R())) , impl(P(), R())))
+

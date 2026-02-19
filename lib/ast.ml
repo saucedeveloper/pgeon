@@ -192,3 +192,21 @@ let compile_strategies (ast : t) =
       Log.error "[strategy:main] status=error reason=missing_main_strategy\n";
       exit 1
   | (_, main) :: _ -> (compiled, main)
+
+(* -------------------------------------------------------------------------- *)
+(* Placeholder API for future tableau compilation steps.                      *)
+(* The concrete implementation was intentionally removed during refactoring.  *)
+
+[@@@ocaml.warning "-32-33-34-69"]
+
+type compiled_rule = unit
+type compiled_tableau = { rules : compiled_rule list }
+
+let compile_rules (_ast : t) ~fvars:_ ~funcs:_ =
+  failwith "Ast.compile_rules is not implemented yet"
+
+let compile_tableau (_ast : t) ~fvars ~funcs =
+  ignore (fvars, funcs);
+  failwith "Ast.compile_tableau is not implemented yet"
+
+[@@@ocaml.warning "+32+33+34+69"]
