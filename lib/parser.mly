@@ -1,391 +1,222 @@
 %{
-open Ast
+open Ast2
 
-module StringOrd = struct
-  type t = string
-  let compare = String.compare
-end
-
-module StringSet = Set.Make (StringOrd)
-module StringMap = Map.Make (StringOrd)
-
-type where_map = Ast.where_expr StringMap.t
-
-let empty_acc = {
-  types = [];
-  functions = [];
-  binders = [];
-  rules = [];
-  strategies = [];
+type logic_acc = {
+  types : string list;
+  functions : function_decl list;
+  binders : binder_decl list;
+  rules : rule_decl list;
+  strategies : strategy_decl list;
 }
 
-let empty_where : Ast.where_binding list = []
+let empty_logic =
+  { types = []; functions = []; binders = []; rules = []; strategies = [] }
 
-type lhs_info = {
-  deps_map : StringSet.t StringMap.t;
-  env_map : string list StringMap.t;
-  binders : StringSet.t;
-}
+let finalize_logic (acc : logic_acc) : logic_file =
+  {
+    types = List.rev acc.types;
+    functions = List.rev acc.functions;
+    binders = List.rev acc.binders;
+    rules = List.rev acc.rules;
+    strategies = List.rev acc.strategies;
+  }
 
-let set_of_env env =
-  List.fold_left (fun acc name -> StringSet.add name acc) StringSet.empty env
-
-let collect_lhs lhs =
-  let rec collect_expr env info = function
-    | LVar v when Ast.is_meta v ->
-        let deps =
-          match StringMap.find_opt v info.deps_map with
-          | Some s -> s
-          | None -> StringSet.empty
-        in
-        let deps = StringSet.union deps (set_of_env env) in
-        let env_map =
-          match StringMap.find_opt v info.env_map with
-          | None -> StringMap.add v env info.env_map
-          | Some existing ->
-              if existing <> env then
-                failwith
-                  (Printf.sprintf
-                     "Inconsistent binder environment for meta variable %s" v);
-              info.env_map
-        in
-        {
-          info with
-          deps_map = StringMap.add v deps info.deps_map;
-          env_map;
-        }
-    | LVar _ -> info
-    | LFun (_, args) ->
-        List.fold_left (collect_expr env) info args
-    | LBinder (_, v, body) ->
-        let info = { info with binders = StringSet.add v info.binders } in
-        collect_expr (v :: env) info body
+let expr_to_string expr =
+  let rec aux = function
+    | EVar v -> v
+    | EApp (name, []) -> Printf.sprintf "%s()" name
+    | EApp (name, args) ->
+        let args = List.map aux args |> String.concat ", " in
+        Printf.sprintf "%s(%s)" name args
+    | EBind (binder, var, body) ->
+        Printf.sprintf "%s %s. %s" binder var (aux body)
+    | EBranchTail name -> Printf.sprintf "...%s" name
+    | ETreeTail name -> Printf.sprintf "...%s" name
   in
-  List.fold_left
-    (collect_expr [])
-    { deps_map = StringMap.empty; env_map = StringMap.empty; binders = StringSet.empty }
-    lhs
+  aux expr
 
-type rule_ctx = {
-  deps_map : StringSet.t StringMap.t;
-  where_defs : where_map;
-  lhs_binders : StringSet.t;
-}
-
-let rec free_binders_expr ctx env visited = function
-  | LVar v ->
-      if StringMap.mem v ctx.where_defs then
-        if StringSet.mem v visited then
-          StringSet.empty
-        else
-          let visited' = StringSet.add v visited in
-          free_binders_wexpr ctx env visited'
-            (StringMap.find v ctx.where_defs)
-      else if Ast.is_meta v then
-        let deps =
-          match StringMap.find_opt v ctx.deps_map with
-          | Some s -> s
-          | None -> StringSet.empty
-        in
-        StringSet.diff deps env
-      else if StringSet.mem v ctx.lhs_binders then
-        if StringSet.mem v env then StringSet.empty else StringSet.singleton v
-      else
-        StringSet.empty
-  | LFun (_, args) ->
-      List.fold_left
-        (fun acc expr ->
-          StringSet.union acc (free_binders_expr ctx env visited expr))
-        StringSet.empty args
-  | LBinder (_, v, body) ->
-      free_binders_expr ctx (StringSet.add v env) visited body
-
-and free_binders_tree ctx env visited = function
-  | Ast.TreeLeaf e -> free_binders_expr ctx env visited e
-  | Ast.TreeBranch el ->
-      List.fold_left
-        (fun acc expr ->
-          StringSet.union acc (free_binders_expr ctx env visited expr))
-        StringSet.empty el
-  | Ast.TreeUnion (a, b) ->
-      let acc = free_binders_tree ctx env visited a in
-      StringSet.union acc (free_binders_tree ctx env visited b)
-
-and free_binders_wexpr ctx env visited (wexpr : Ast.where_expr) =
-  let base =
-    match wexpr.base with
-    | Ast.WExpr e -> free_binders_expr ctx env visited e
-    | Ast.WTree tree -> free_binders_tree ctx env visited tree
-  in
-  match wexpr.substs with
-  | None -> base
-  | Some (Ast.SubstRef expr) ->
-      let deps = free_binders_expr ctx env visited expr in
-      StringSet.union base deps
-  | Some (Ast.SubstEntries entries) ->
-      List.fold_left
-        (fun acc subst ->
-          let acc = StringSet.remove subst.target acc in
-          match subst.rhs with
-          | SR_Gen call ->
-              let _ = call.gen_name in
-              let deps =
-                List.fold_left
-                  (fun deps expr ->
-                    StringSet.union deps
-                      (free_binders_expr ctx env visited expr))
-                  StringSet.empty call.gen_args
-              in
-              StringSet.union acc deps
-          | SR_Expr expr ->
-              let deps = free_binders_wexpr ctx env visited expr in
-              StringSet.union acc deps)
-        base entries
-
-let bindings_to_map rule_name clause =
-  List.fold_left
-    (fun map (binding : Ast.where_binding) ->
-      if StringMap.mem binding.var map then
-        failwith
-          (Printf.sprintf "Duplicate where binding for %s in rule %s"
-             binding.var rule_name);
-      StringMap.add binding.var binding.value map)
-    StringMap.empty clause
-
-let check_rule rule_name (lhs_info : lhs_info) rhs where_clause =
-  let where_defs = bindings_to_map rule_name where_clause in
-  let ctx =
-    {
-      deps_map = lhs_info.deps_map;
-      where_defs;
-      lhs_binders = lhs_info.binders;
-    }
-  in
-  let free_in_rhs =
-    List.fold_left
-      (fun acc branch ->
-        List.fold_left
-      (fun acc expr ->
-        StringSet.union acc
-          (free_binders_expr ctx StringSet.empty StringSet.empty expr))
-      acc branch)
-    StringSet.empty rhs
-  in
-  let offending = StringSet.inter free_in_rhs ctx.lhs_binders in
-  if not (StringSet.is_empty offending) then
-    let vars = String.concat ", " (StringSet.elements offending) in
-    failwith
-      (Printf.sprintf
-         "Rule %s: missing generator for bound variable(s): %s" rule_name vars)
-  else ()
-
-let ensure_unique_bindings clause =
-  let rec aux set = function
-    | [] -> []
-    | (binding : Ast.where_binding) :: tl ->
-        if StringSet.mem binding.var set then
-          failwith
-            (Printf.sprintf "Duplicate where binding for %s" binding.var)
-        else
-          binding :: aux (StringSet.add binding.var set) tl
-  in
-  aux StringSet.empty clause
-
-let extend_env_map env_map clause =
-  List.fold_left
-    (fun map (binding : Ast.where_binding) ->
-      let value = binding.value in
-      let new_env =
-        match value.base with
-        | Ast.WExpr (LVar name) when Ast.is_meta name -> (
-            match value.substs with
-            | Some (Ast.SubstEntries entries) ->
-                let base_env =
-                  match StringMap.find_opt name map with
-                  | Some env -> env
-                  | None -> []
-                in
-                List.fold_left
-                  (fun env subst -> List.filter (( <> ) subst.target) env)
-                  base_env entries
-            | _ -> [])
-        | _ -> []
-      in
-      StringMap.add binding.var new_env map)
-    env_map clause
+let expect_var = function
+  | EVar v -> v
+  | _ -> failwith "expected meta variable in mge substitution"
 %}
 
 %token <string> IDENT
-%token TYPE FUNCTION BINDER RULE STRATEGY
-%token COLON DOT SEMI PIPE COMMA PIPEPIPE
+%token TREE TYPE FUNCTION BINDER RULE STRATEGY WHERE
+%token COLON DOT SEMI PIPE PIPEPIPE COMMA
 %token LPAREN RPAREN
 %token LBRACE RBRACE LBRACKET RBRACKET
-%token EQ LARROW AT
-%token WHERE
-%token ARROWBIG ARROWDASH ARROWX
-%token ARROW
-%token STAR QUESTION
+%token EQ ARROWBIG ARROWDASH ARROWX ARROW
+%token LARROW
+%token STAR QUESTION BANG
+%token ELLIPSIS
 %token EOF
 
-%start file
-%start problem
-%type <Ast.t> file
-%type <Problem.t> problem
+%start logic_file
+%start problem_file
 
-%type <t> items
-%type <t -> t> entry
-%type <Ast.expr> expr
-%type <Ast.expr list> expr_list
-%type <Ast.expr list> lhs_expr_list
-%type <Ast.expr list list> rhs
-%type <Ast.strategy_decl> strat_expr
-%type <Ast.rule_type> arrow
-%type <Ast.function_decl list> problem_functions
-%type <Ast.function_decl list> problem_function
-%type <string list> ident_seq
-%type <Ast.expr list> problem_formulas
-%type <Ast.expr list> problem_formulas_rest
-%type <Ast.tree_expr> tree_expr
-%type <Ast.tree_expr> tree_atom
-%type <Ast.tree_expr> tree_union
-%type <Ast.expr list> branch_expr
-%type <Ast.expr list> branch_expr_tail
-%type <Ast.where_binding list> where_opt
-%type <Ast.where_binding list> where_entries
-%type <Ast.where_binding list> where_entries_tail
-%type <Ast.where_binding> where_entry
-%type <Ast.where_expr> where_expr
-%type <Ast.where_base> where_base
-%type <Ast.where_subst option> where_substs_opt
-%type <Ast.where_subst> substitution_body
-%type <Ast.subst_entry list> substitution_list
-%type <Ast.subst_entry> substitution_assignment
-%type <Ast.subst_rhs> substitution_rhs
-%type <Ast.generator_call> generator_call
-%type <Ast.expr list> generator_args_opt
-%type <Ast.expr list> generator_args
+%type <Ast2.logic_file> logic_file
+%type <Ast2.problem_file> problem_file
+
+%type <logic_acc> logic_items
+%type <logic_acc -> logic_acc> logic_entry
+%type <string list * string> func_type
+%type <string list> type_seq ident_list
+%type <Ast2.expr list> expr_sequence
+%type <Ast2.expr list> expr_branch
+%type <Ast2.expr list list> branch_list rhs_branches rhs_branches_opt
+%type <Ast2.expr list> branch_item
+%type <Ast2.expr list list> lhs_tree lhs_tree_body
+%type <Ast2.expr> expr
+%type <Ast2.expr list> args
+%type <Ast2.expr list> args_opt
+%type <Ast2.strategy_kind> strat_expr strat_or strat_then strat_postfix strat_atom
+%type <Ast2.where_binding list> where_clause_opt where_entries
+%type <Ast2.where_binding> where_entry
+%type <Ast2.where_expr> where_expr
+%type <Ast2.where_subst> where_subst where_subst_opt
+%type <Ast2.where_subst_entry list> substitution_entries_tail substitution_list
+%type <Ast2.where_subst_entry> substitution_entry
+%type <bool> rule_arrow
+%type <Ast2.function_decl list> function_decl_item
+%type <Ast2.function_decl list> problem_functions
+%type <Ast2.function_decl list> problem_functions_rev
+%type <Ast2.expr list> problem_formulas
+%type <Ast2.expr list> nonempty_problem_formulas
+%type <unit> opt_semi
+
+%left PIPEPIPE
+%left SEMI
+%right STAR QUESTION BANG
 
 %%
 
-file:
-  | items EOF {
-      {
-        types     = List.rev $1.types;
-        functions = List.rev $1.functions;
-        binders   = List.rev $1.binders;
-        rules     = List.rev $1.rules;
-        strategies  = List.rev $1.strategies;
-      }
-    }
+logic_file:
+  | logic_items EOF { finalize_logic $1 }
 
-items:
-  | /* empty */ { empty_acc }
-  | items entry { $2 $1 }
+logic_items:
+  | /* empty */ { empty_logic }
+  | logic_items logic_entry { $2 $1 }
 
-entry:
+logic_entry:
   | TYPE IDENT {
       fun acc -> { acc with types = $2 :: acc.types }
     }
-  | FUNCTION IDENT COLON type_list ARROW IDENT {
+  | FUNCTION ident_list COLON func_type {
       fun acc ->
-        let fd = { name = $2; params_types = $4; t = $6 } in
-        { acc with functions = fd :: acc.functions }
+        let params, ret = $4 in
+        let decls =
+          List.rev_map
+            (fun name -> { name; params_types = params; t = ret })
+            $2
+        in
+        { acc with functions = List.rev_append decls acc.functions }
     }
   | BINDER IDENT COLON IDENT DOT IDENT {
       fun acc ->
-        let bd = { name = $2; variable_type = $4; t = $6 } in
-        { acc with binders = bd :: acc.binders }
+        let decl = { name = $2; variable_type = $4; t = $6 } in
+        { acc with binders = decl :: acc.binders }
     }
-  | RULE IDENT COLON lhs_expr_list arrow rhs_opt where_opt {
+  | RULE IDENT COLON expr_branch ARROWX {
       fun acc ->
-        let where_clause = $7 in
-        let lhs_info = collect_lhs $4 in
-        check_rule $2 lhs_info $6 where_clause;
-        let extended_env =
-          extend_env_map lhs_info.env_map where_clause |> StringMap.bindings
-        in
-        let rd =
-          {
-            name = $2;
-            lhs = $4;
-            arrow = $5;
-            rhs = $6;
-            where_clause;
-            meta_envs = extended_env;
-            tree_rule = None;
-          }
-        in
-        { acc with rules = rd :: acc.rules }
+        let rule = RuleClosure { name = $2; lhs = $4 } in
+        { acc with rules = rule :: acc.rules }
     }
-  | RULE IDENT COLON tree_union arrow tree_expr where_opt {
+  | TREE RULE IDENT COLON lhs_tree rule_arrow rhs_branches where_clause_opt {
       fun acc ->
-        let where_clause = $7 in
-        let lhs_tree = $4 in
-        let rd =
-          {
-            name = $2;
-            lhs = [];
-            arrow = $5;
-            rhs = [];
-            where_clause;
-            meta_envs = [];
-            tree_rule =
-              Some
-                {
-                  Ast.lhs_tree = lhs_tree;
-                  rhs_tree = $6;
-                  branch_tail = None;
-                  tree_var = "";
-                };
-          }
+        let rule =
+          RuleTree
+            {
+              name = $3;
+              lhs = $5;
+              rhs = $7;
+              is_invertible = $6;
+              where_clause = $8;
+            }
         in
-        { acc with rules = rd :: acc.rules }
+        { acc with rules = rule :: acc.rules }
+    }
+  | RULE IDENT COLON lhs_tree rule_arrow rhs_branches where_clause_opt {
+      fun acc ->
+        let rule =
+          RuleTree
+            {
+              name = $2;
+              lhs = $4;
+              rhs = $6;
+              is_invertible = $5;
+              where_clause = $7;
+            }
+        in
+        { acc with rules = rule :: acc.rules }
+    }
+  | RULE IDENT COLON expr_branch rule_arrow rhs_branches_opt where_clause_opt {
+      fun acc ->
+        let rule =
+          RuleBranch
+            {
+              name = $2;
+              lhs = $4;
+              rhs = $6;
+              is_invertible = $5;
+              where_clause = $7;
+            }
+        in
+        { acc with rules = rule :: acc.rules }
     }
   | STRATEGY IDENT COLON strat_expr {
       fun acc ->
-        { acc with strategies = ($2, $4) :: acc.strategies }
+        let decl = { name = $2; strategy = $4 } in
+        { acc with strategies = decl :: acc.strategies }
     }
 
-type_list:
-  | { [] }
+func_type:
+  | ARROW IDENT { ([], $2) }
+  | type_seq ARROW IDENT { ($1, $3) }
+
+type_seq:
   | IDENT { [$1] }
-  | type_list IDENT { $1 @ [$2] }
+  | type_seq IDENT { $1 @ [$2] }
 
-arrow:
-  | ARROWBIG { Invertible }
-  | ARROWX   { Close }
-  | ARROW    { NoInvertible }
-  | ARROWDASH { NoInvertible }
+ident_list:
+  | IDENT { [$1] }
+  | IDENT ident_list { $1 :: $2 }
 
-rhs_opt:
-  | /* empty */ { [] }            /* allow no RHS, useful for ==X */
-  | rhs { $1 }
+lhs_tree:
+  | lhs_tree_body { $1 }
+  | LPAREN lhs_tree_body RPAREN { $2 }
 
-rhs:
-  | rhs_alt { [$1] }
-  | rhs PIPE rhs_alt { $1 @ [$3] }
+lhs_tree_body:
+  | expr_branch PIPE branch_list { $1 :: $3 }
 
-rhs_alt:
-  | expr_list { $1 }
+rhs_branches_opt:
+  | rhs_branches { $1 }
+  | /* empty */ { [] }
 
-lhs_expr_list:
-  | lhs_expr { [$1] }
-  | lhs_expr SEMI lhs_expr_list { $1 :: $3 }
+rhs_branches:
+  | branch_list { $1 }
 
-expr_list:
+branch_list:
+  | branch_item { [$1] }
+  | branch_item PIPE branch_list { $1 :: $3 }
+
+branch_item:
+  | ELLIPSIS IDENT { [ETreeTail $2] }
+  | expr_branch { $1 }
+
+expr_branch:
+  | expr_sequence { $1 }
+  | LPAREN expr_sequence RPAREN { $2 }
+
+expr_sequence:
   | expr { [$1] }
-  | expr SEMI expr_list { $1 :: $3 }
-
-lhs_expr:
-  | IDENT LPAREN args_opt RPAREN { LFun ($1, $3) }
-  | IDENT IDENT DOT expr { LBinder ($1, $2, $4) }
-  | IDENT { LVar $1 }
+  | expr SEMI expr_sequence { $1 :: $3 }
+  | expr SEMI ELLIPSIS IDENT { [ $1; EBranchTail $4 ] }
 
 expr:
-  | IDENT LPAREN args_opt RPAREN { LFun ($1, $3) }
-  | IDENT IDENT DOT expr { LBinder ($1, $2, $4) }
+  | IDENT LPAREN args_opt RPAREN { EApp ($1, $3) }
+  | IDENT IDENT DOT expr { EBind ($1, $2, $4) }
   | LPAREN expr RPAREN { $2 }
-  | IDENT { LVar $1 }
+  | IDENT { EVar $1 }
 
 args_opt:
   | /* empty */ { [] }
@@ -395,132 +226,108 @@ args:
   | expr { [$1] }
   | expr COMMA args { $1 :: $3 }
 
-strat_expr:
-  | strat_seq { $1 }
+rule_arrow:
+  | ARROWBIG { true }
+  | ARROWDASH { false }
+  | ARROW { false }
 
-strat_seq:
-  | strat_or { $1 }
-  | strat_seq SEMI strat_or { AndThen ($1, $3) }
-
-strat_or:
-  | strat_post { $1 }
-  | strat_or PIPEPIPE strat_post { OrElse ($1, $3) }
-
-strat_post:
-  | strat_atom { $1 }
-  | strat_post STAR { Repeat $1 }
-  | strat_post QUESTION { Try $1 }
-
-strat_atom:
-  | IDENT { Rule $1 }
-  | LPAREN strat_expr RPAREN { $2 }
-
-problem:
-  | problem_functions problem_formulas EOF {
-      Problem.of_components $1 $2
-    }
-
-problem_functions:
+where_clause_opt:
+  | WHERE LBRACE where_entries RBRACE { $3 }
   | /* empty */ { [] }
-  | problem_functions problem_function { $1 @ $2 }
-
-problem_function:
-  | FUNCTION ident_seq COLON type_list ARROW IDENT {
-      List.map
-        (fun name -> { name; params_types = $4; t = $6 })
-        $2
-    }
-  | FUNCTION ident_seq COLON ARROW IDENT {
-      List.map (fun name -> { name; params_types = []; t = $5 }) $2
-    }
-
-ident_seq:
-  | IDENT { [$1] }
-  | ident_seq IDENT { $1 @ [$2] }
-
-problem_formulas:
-  | expr problem_formulas_rest { $1 :: $2 }
-
-problem_formulas_rest:
-  | SEMI problem_formulas { $2 }
-  | SEMI { [] }
-  | /* empty */ { [] }
-
-where_opt:
-  | WHERE LBRACE where_entries RBRACE { ensure_unique_bindings $3 }
-  | /* empty */ { empty_where }
 
 where_entries:
   | /* empty */ { [] }
-  | where_entry where_entries_tail { $1 :: $2 }
-
-where_entries_tail:
-  | /* empty */ { [] }
-  | SEMI where_entries { $2 }
-  | SEMI { [] }
+  | where_entry where_entries { $1 :: $2 }
 
 where_entry:
   | IDENT EQ where_expr { { var = $1; value = $3 } }
 
 where_expr:
-  | where_base where_substs_opt { { base = $1; substs = $2 } }
-
-where_substs_opt:
-  | /* empty */ { None }
-  | LBRACKET substitution_body RBRACKET { Some $2 }
-
-where_base:
-  | tree_expr {
-      match $1 with
-      | Ast.TreeLeaf e -> Ast.WExpr e
-      | tree -> Ast.WTree tree
+  | branch_list where_subst_opt {
+      { expr = $1; subst = $2 }
+    }
+  | LPAREN branch_list RPAREN where_subst_opt {
+      { expr = $2; subst = $4 }
     }
 
-substitution_body:
-  | substitution_list { Ast.SubstEntries $1 }
-  | expr { Ast.SubstRef $1 }
+where_subst_opt:
+  | LBRACKET where_subst RBRACKET { $2 }
+  | /* empty */ { WSubstEntries [] }
+
+where_subst:
+  | IDENT LARROW expr substitution_entries_tail {
+      let first = { var = $1; gen = expr_to_string $3 } in
+      WSubstEntries (first :: $4)
+    }
+  | IDENT LPAREN expr COMMA expr RPAREN {
+      match String.equal $1 "mge", $3, $5 with
+      | true, lhs, rhs ->
+          let var1 = expect_var lhs in
+          let var2 = expect_var rhs in
+          WSMge { var1; var2 }
+      | _ -> failwith "unsupported substitution form"
+    }
+
+substitution_entries_tail:
+  | /* empty */ { [] }
+  | COMMA substitution_list { $2 }
 
 substitution_list:
-  | substitution_assignment { [$1] }
-  | substitution_assignment COMMA substitution_list { $1 :: $3 }
+  | substitution_entry { [$1] }
+  | substitution_entry COMMA substitution_list { $1 :: $3 }
 
-substitution_assignment:
-  | IDENT LARROW substitution_rhs { { target = $1; rhs = $3 } }
+substitution_entry:
+  | IDENT LARROW expr {
+      { var = $1; gen = expr_to_string $3 }
+    }
 
-substitution_rhs:
-  | generator_call { SR_Gen $1 }
-  | where_expr { SR_Expr $1 }
+strat_expr:
+  | strat_or { $1 }
 
-generator_call:
-  | AT IDENT generator_args_opt { { gen_name = $2; gen_args = $3 } }
+strat_or:
+  | strat_or PIPEPIPE strat_then { SOr ($1, $3) }
+  | strat_then { $1 }
 
-generator_args_opt:
-  | LPAREN RPAREN { [] }
-  | LPAREN generator_args RPAREN { $2 }
+strat_then:
+  | strat_then SEMI strat_postfix { SThen ($1, $3) }
+  | strat_postfix { $1 }
+
+strat_postfix:
+  | strat_postfix STAR { SRepeat $1 }
+  | strat_postfix QUESTION { STry $1 }
+  | strat_atom { $1 }
+
+strat_atom:
+  | IDENT BANG { SRuleBang $1 }
+  | IDENT { SCall $1 }
+  | LPAREN strat_expr RPAREN { $2 }
+
+problem_file:
+  | problem_functions problem_formulas EOF {
+      { functions = $1; formulas = $2 }
+    }
+
+problem_functions:
+  | problem_functions_rev { List.rev $1 }
+
+problem_functions_rev:
   | /* empty */ { [] }
+  | problem_functions_rev function_decl_item { List.rev_append $2 $1 }
 
-generator_args:
-  | expr { [$1] }
-  | expr COMMA generator_args { $1 :: $3 }
+function_decl_item:
+  | FUNCTION ident_list COLON func_type {
+      let params, ret = $4 in
+      List.map (fun name -> { name; params_types = params; t = ret }) $2
+    }
 
-tree_expr:
-  | tree_atom { $1 }
-  | tree_expr PIPE tree_atom { Ast.TreeUnion ($1, $3) }
-
-tree_union:
-  | tree_atom PIPE tree_atom { Ast.TreeUnion ($1, $3) }
-  | tree_union PIPE tree_atom { Ast.TreeUnion ($1, $3) }
-
-tree_atom:
-  | LPAREN tree_expr RPAREN { $2 }
-  | LPAREN branch_expr RPAREN { Ast.TreeBranch $2 }
-  | expr { Ast.TreeLeaf $1 }
-
-branch_expr:
-  | expr branch_expr_tail { $1 :: $2 }
-
-branch_expr_tail:
-  | SEMI branch_expr { $2 }
+problem_formulas:
   | /* empty */ { [] }
+  | nonempty_problem_formulas { $1 }
 
-%%
+nonempty_problem_formulas:
+  | expr opt_semi { [$1] }
+  | expr SEMI nonempty_problem_formulas { $1 :: $3 }
+
+opt_semi:
+  | /* empty */ { () }
+  | SEMI { () }

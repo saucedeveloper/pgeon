@@ -4,9 +4,9 @@
 )
 
 (ocamllex
- (modules lexer lexer2))
+ (modules lexer))
 
 (menhir
- (modules parser parser2)
+ (modules parser)
   (flags --table)
 )
