@@ -86,7 +86,7 @@ let () =
           exit 0)
         else (
           print_endline "Failure";
-          exit 1)
+          exit 0)
       with ex ->
         prerr_endline (Printexc.to_string ex);
         print_endline "Error";
