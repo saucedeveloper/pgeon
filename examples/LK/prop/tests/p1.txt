@@ -1,0 +1,5 @@
+function a b: -> Prop
+
+/* (a → b) ∧ a ∧ ¬b */
+
+and(impl(a(), b()), and(a(), not(b())))

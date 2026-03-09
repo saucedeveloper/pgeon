@@ -1,0 +1,5 @@
+function a b: -> Prop
+
+/* a ∨ b */
+
+or(a(), b())

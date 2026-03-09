@@ -1,0 +1,4 @@
+function a: -> Prop
+
+/* (A ∧ ¬A) */
+and(a(), not(a()))

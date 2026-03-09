@@ -1,0 +1,21 @@
+main type formula
+
+function not  : formula -> formula
+function and  : formula formula -> formula
+function or   : formula formula -> formula
+function impl : formula formula -> formula
+
+rule rAxiom   : P ; not(P) ==X
+
+rule rAnd     : and(P, Q)       ==> P ; Q
+rule rOr      : or(P, Q)        ==> P | Q
+rule rImpl    : impl(P, Q)      ==> not(P) | Q
+rule rNotNot  : not(not(P))     ==> P
+rule rNotAnd  : not(and(P, Q))  ==> not(P) | not(Q)
+rule rNotOr   : not(or(P, Q))   ==> not(P) ; not(Q)
+rule rNotImpl : not(impl(P, Q)) ==> P ; not(Q)
+
+strategy closure : rAxiom
+strategy alpha : rAnd || rNotNot || rNotOr || rNotImpl
+strategy beta : rOr || rImpl || rNotAnd
+main strategy prove : (closure || alpha || beta)*

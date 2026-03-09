@@ -1,28 +1,46 @@
-type sequent
-type formula_mset
+type prop
 main type formula
-type var
 
-function seq : formula_mset formula -> sequent
-function empty_mset : -> formula_mset
-function singleton : formula -> formula_mset
-function union : formula_mset formulamset -> formula_mset
-function bot: -> formula
-function and: formula formula -> formula
-function or: formula formula -> formula
-function not: formula -> formula
-function impl: formula formula -> formula
-function atom : var -> formula
+function top : -> prop
+function bot : -> prop
+function not : prop -> prop
+function and : prop prop -> prop
+function or  : prop prop -> prop
+function imp : prop prop -> prop
+function equ : prop prop -> prop
 
-rule axiom:        seq(union(singleton(F), M), F) ==X
-rule exfalso:      seq(union(singleton(bot()), M), F) ==X
-rule andleft:      seq(union(singleton(and(F1, F2)), M), F3) ==> seq(union(union(singleton(F1), singleton(F2)), M), F3)
-rule orleft:       seq(union(singleton(or(F1, F2)), M), F3) ==> seq(union(singleton(F1), M), F3) | seq(union(singleton(F2), M), F3)
-rule implleft:     seq(union(singleton(impl(F1, F2)), M), F3) ==> seq(union(singleton(F1), M), F1) | seq(union(singleton(F2), M), F3)
-rule andright:     seq(M, and(F1, F2)) ==> seq(M, F1) | seq(M, F2)
-rule orright1:     seq(M, or(F1, F2)) ==> seq(M, F1)
-rule orright2:     seq(M, or(F1, F2)) ==> seq(M, F2)
-rule implright:     seq(M, impl(F1, F2)) ==> seq(union(singleton(F1), M), F2)
+function left  : prop -> formula
+function right : prop -> formula
 
-strategy saturate : axiom || exfalso || andleft || orleft || implleft || andright || orright1 || orright2 || implright
-main strategy prove :    saturate !
+rule ax : left(P0) ; right(P0) ==X
+rule top_ax : right(top()) ==X
+rule bot_ax : left(bot()) ==X
+rule not_right : right(not(P0)) ==> right(imp(P0, bot()))
+rule not_left : left(not(P0)) ==> left(imp(P0, bot()))
+rule equ_right : right(equ(P0, P1)) ==> right(and(imp(P0, P1), imp(P1, P0)))
+rule equ_left : left(equ(P0, P1)) ==> left(and(imp(P0, P1), imp(P1, P0)))
+rule and_right : right(and(P0, P1)) ==> right(P0) | right(P1)
+rule and_left : left(and(P0, P1)) ==> left(P0) ; left(P1)
+rule or_right1 : right(or(P0, P1)) ==> right(P0)
+rule or_right2 : right(or(P0, P1)) ==> right(P1)
+rule or_left : left(or(P0, P1)) ==> left(P0) | left(P1)
+rule imp_right : right(imp(P0, P1)) ==> left(P0) ; right(P1)
+rule imp_left1 : left(imp(P0, P1)) ; left(P0) ==> left(P0) ; left(P1)
+rule imp_left2 : left(imp(and(P0, P1), P2)) ==> left(imp(P0, imp (P1, P2)))
+rule imp_left3 : left(imp(or(P0, P1), P2)) ==>
+  left(imp(P0, P2)) ; left(imp(P1, P2))
+rule imp_left4 : left(imp(imp(P0, P1), P2)) ; right(P3) ==>
+  left(imp(P1, P2)) ; right(imp(P0, P1)) | left(P2) ; right(P3)
+rule imp_left5 : left(imp(top(), P0)) ==> left(P0)
+rule imp_left6 : left(imp(bot(), P0)) ==>
+rule imp_left7 : left(imp(not(P0), P1)) ==> left(imp(imp(P0, bot()), P1))
+rule imp_left8 : left(imp(equ(P0, P1), P2)) ==>
+  left(imp(and(imp(P0, P1), imp(P1, P0)), P2))
+
+strategy reduce_once : ax || top_ax || bot_ax || not_right || not_left ||
+  equ_right || equ_left || and_right || and_left || or_right1 || or_right2 ||
+  or_left || imp_right || imp_left1 || imp_left2 || imp_left3 || imp_left4 ||
+  imp_left5 || imp_left6 || imp_left7 || imp_left8
+strategy reduce_all : reduce_once*
+strategy reduce_fixed : (reduce_once ; reduce_fixed)?
+main strategy prove : reduce_all ; reduce_fixed?
