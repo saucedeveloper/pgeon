@@ -1,6 +1,4 @@
-function a dummy : -> formula
-
-dummy() ;
+function a : -> formula
 
 /* A ⇒ ¬¬A */
 

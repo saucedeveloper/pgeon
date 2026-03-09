@@ -1,6 +1,4 @@
-function a b dummy : -> formula
-
-dummy() ;
+function a b : -> formula
 
 /* ¬A ∨ ¬B ⇒ ¬(A ∧ B) */
 
