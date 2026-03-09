@@ -1038,12 +1038,18 @@ let init (_logic_file : Ast2.logic_file) (_problem_file : Ast2.problem_file) :
     }
   in
   let continuation =
-    match List.assoc_opt "prove" strategy_env with
+    let fallback () =
+      match strategy_env with
+      | [] -> []
+      | (_, strat) :: _ -> [ KStrategy strat ]
+    in
+    match List.assoc_opt _logic_file.main_strategy strategy_env with
     | Some strat -> [ KStrategy strat ]
-    | None -> (
-        match strategy_env with
-        | [] -> []
-        | (_, strat) :: _ -> [ KStrategy strat ])
+    | None ->
+        Log.error
+          "[tableau:init] status=error reason=unknown_main_strategy name=%s\n"
+          _logic_file.main_strategy;
+        fallback ()
   in
   ( { rules; strategy_env; function_names = functions; binder_names = binders },
     { proof_state; continuation } )

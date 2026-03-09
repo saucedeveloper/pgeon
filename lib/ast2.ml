@@ -1,9 +1,11 @@
 type logic_file = {
   types : string list;
+  main_type : string;
   functions : function_decl list;
   binders : binder_decl list;
   rules : rule_decl list;
   strategies : strategy_decl list;
+  main_strategy : string;
 }
 
 and problem_file = { functions : function_decl list; formulas : expr list }

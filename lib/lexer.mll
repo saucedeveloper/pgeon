@@ -4,6 +4,7 @@
   let keywords = function
     | "tree" -> TREE
     | "type" -> TYPE
+    | "main" -> MAIN
     | "function" -> FUNCTION
     | "binder" -> BINDER
     | "rule" -> RULE

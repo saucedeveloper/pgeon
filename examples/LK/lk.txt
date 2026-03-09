@@ -1,4 +1,4 @@
-type formula
+main type formula
 type term
 
 function not  : formula -> formula
@@ -49,5 +49,4 @@ strategy alpha : rAnd || rNotNot || rNotOr || rNotImpl
 strategy beta : rOr || rImpl || rNotAnd
 strategy delta : rExists || rNotForall
 strategy gamma : rForall!? ; rNotExists!?
-strategy prove : (closure || alpha || delta || beta || gamma)*
-
+main strategy prove : (closure || alpha || delta || beta || gamma)*

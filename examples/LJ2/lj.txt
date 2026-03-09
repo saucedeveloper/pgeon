@@ -1,5 +1,5 @@
 type prop
-type formula
+main type formula
 
 function top : -> prop
 function bot : -> prop
@@ -43,4 +43,4 @@ strategy reduce_once : ax || top_ax || bot_ax || not_right || not_left ||
   imp_left5 || imp_left6 || imp_left7 || imp_left8
 strategy reduce_all : reduce_once*
 strategy reduce_fixed : (reduce_once ; reduce_fixed)?
-strategy prove : reduce_all ; reduce_fixed?
+main strategy prove : reduce_all ; reduce_fixed?

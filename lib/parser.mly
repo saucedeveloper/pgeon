@@ -3,22 +3,46 @@ open Ast2
 
 type logic_acc = {
   types : string list;
+  main_type : string option;
   functions : function_decl list;
   binders : binder_decl list;
   rules : rule_decl list;
   strategies : strategy_decl list;
+  main_strategy : string option;
 }
 
 let empty_logic =
-  { types = []; functions = []; binders = []; rules = []; strategies = [] }
+  {
+    types = [];
+    main_type = None;
+    functions = [];
+    binders = [];
+    rules = [];
+    strategies = [];
+    main_strategy = None;
+  }
 
 let finalize_logic (acc : logic_acc) : logic_file =
+  let main_type =
+    match acc.main_type with
+    | Some t -> t
+    | None -> failwith "missing main type declaration (use 'main type <name>')"
+  in
+  let main_strategy =
+    match acc.main_strategy with
+    | Some s -> s
+    | None ->
+        failwith
+          "missing main strategy declaration (use 'main strategy <name> : ...')"
+  in
   {
     types = List.rev acc.types;
+    main_type;
     functions = List.rev acc.functions;
     binders = List.rev acc.binders;
     rules = List.rev acc.rules;
     strategies = List.rev acc.strategies;
+    main_strategy;
   }
 
 let expr_to_string expr =
@@ -41,7 +65,7 @@ let expect_var = function
 %}
 
 %token <string> IDENT
-%token TREE TYPE FUNCTION BINDER RULE STRATEGY WHERE
+%token TREE TYPE FUNCTION BINDER RULE STRATEGY WHERE MAIN
 %token COLON DOT SEMI PIPE PIPEPIPE COMMA
 %token LPAREN RPAREN
 %token LBRACE RBRACE LBRACKET RBRACKET
@@ -98,6 +122,21 @@ logic_items:
   | logic_items logic_entry { $2 $1 }
 
 logic_entry:
+  | MAIN TYPE IDENT {
+      fun acc ->
+        (match acc.main_type with
+        | Some existing ->
+            failwith
+              (Printf.sprintf
+                 "multiple main type declarations: %s and %s"
+                 existing $3)
+        | None -> ());
+        {
+          acc with
+          types = $3 :: acc.types;
+          main_type = Some $3;
+        }
+    }
   | TYPE IDENT {
       fun acc -> { acc with types = $2 :: acc.types }
     }
@@ -167,6 +206,22 @@ logic_entry:
       fun acc ->
         let decl = { name = $2; strategy = $4 } in
         { acc with strategies = decl :: acc.strategies }
+    }
+  | MAIN STRATEGY IDENT COLON strat_expr {
+      fun acc ->
+        (match acc.main_strategy with
+        | Some existing ->
+            failwith
+              (Printf.sprintf
+                 "multiple main strategy declarations: %s and %s"
+                 existing $3)
+        | None -> ());
+        let decl = { name = $3; strategy = $5 } in
+        {
+          acc with
+          strategies = decl :: acc.strategies;
+          main_strategy = Some $3;
+        }
     }
 
 func_type:

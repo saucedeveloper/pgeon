@@ -1,6 +1,6 @@
 type sequent
 type formula_mset
-type formula
+main type formula
 type var
 
 function seq : formula_mset formula -> sequent
@@ -25,5 +25,4 @@ rule orright2:     seq(M, or(F1, F2)) ==> seq(M, F2)
 rule implright:     seq(M, impl(F1, F2)) ==> seq(union(singleton(F1), M), F2)
 
 strategy saturate : axiom || exfalso || andleft || orleft || implleft || andright || orright1 || orright2 || implright
-strategy prove :    saturate !
-
+main strategy prove :    saturate !
