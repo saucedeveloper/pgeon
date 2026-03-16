@@ -40,3 +40,5 @@ let debug fmt = log Debug fmt
 let info fmt = log Info fmt
 let warn fmt = log Warn fmt
 let error fmt = log Error fmt
+
+let get_level () = !min_level

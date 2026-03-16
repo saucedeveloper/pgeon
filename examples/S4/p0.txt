@@ -1,0 +1,3 @@
+function q : -> formula
+
+box(and(q(), not(box(q()))));

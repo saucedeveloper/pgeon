@@ -21,7 +21,7 @@ rule rNotImpl : not(impl(P, Q)) ==> P ; not(Q)
 
 tree rule rClosure : (P0 ; not(P1) ; ...B) | ...T --> ...T'
 where {
-  T' = ((P0; not(P1); ...B) | ...T)[mge(P0, P1)]
+  ...T' = (...T)[mgu(P0, P1)]
 }
 
 rule rForall : forall x. P --> Q
@@ -44,9 +44,10 @@ where {
   Q = P[x <- @skolem()]
 }
 
-strategy closure : rAxiom || (rClosure; rAxiom)
+strategy closure : rAxiom || rClosure
 strategy alpha : rAnd || rNotNot || rNotOr || rNotImpl
 strategy beta : rOr || rImpl || rNotAnd
 strategy delta : rExists || rNotForall
-strategy gamma : rForall!? ; rNotExists!?
-main strategy prove : (closure || alpha || delta || beta || gamma)*
+strategy gamma : rForall || rNotExists
+
+main strategy prove : (closure || alpha || delta || beta &| gamma)*

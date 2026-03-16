@@ -2,8 +2,8 @@ function P : term -> formula
 function Q : term -> formula
 function a b : -> term
 
-P(a());
-P(b());
 Q(a());
+P(b());
+P(a());
 forall x. or(not(P(x)), not(Q(x)));
 

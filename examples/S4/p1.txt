@@ -1,0 +1,5 @@
+function p q : -> formula
+
+box(p);
+not(and(p, not(box(q))));
+not(box(and(p, q)));

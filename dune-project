@@ -2,13 +2,11 @@
 
 (name pgeon)
 
-(using menhir 3.0)
-
 (authors "Romain Sidhoum <romain.sidhoum@umontpellier.fr>")
 
 (package
  (name pgeon)
- (depends (ocaml (>= 5.1)) (menhir (>= 20201201)))
+ (depends (ocaml (>= 5.1)))
  )
 
 (map_workspace_root false)

@@ -1,12 +1,4 @@
 (library
  (name        pgeon)
- (libraries   menhirLib)
 )
 
-(ocamllex
- (modules lexer))
-
-(menhir
- (modules parser)
-  (flags --table)
-)

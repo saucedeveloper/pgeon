@@ -1,6 +1,6 @@
 SHELL:=/bin/bash
 LOGIC=lk_fo.txt
-UNSAT=tests/p0.txt tests/p1.txt tests/p2.txt tests/p3.txt tests/p4.txt tests/p5.txt barber.txt drinker.txt
+UNSAT=tests/p0.txt tests/p1.txt tests/p2.txt tests/p3.txt tests/p4.txt tests/p5.txt tests/p6.txt barber.txt drinker.txt
 UNSATLOG=$(patsubst %.txt,%.txt.log,$(UNSAT))
 SAT=tests/f0.txt tests/f1.txt tests/f2.txt
 SATLOG=$(patsubst %.txt,%.txt.log,$(SAT))
@@ -10,7 +10,7 @@ EXEC=dune exec -- pgeon $(LOGIC)
 all: unsat sat clean
 
 %.log: %
-	@timeout 5 $(EXEC) $< > $@ 2>/dev/null || echo "Timeout" > $@
+	@timeout 1 $(EXEC) $< > $@ 2>/dev/null || echo "Timeout" > $@
 
 unsat: $(UNSATLOG)
 	@echo -e "\033[1;33m>>>> Testing success files:\033[0;39m";
