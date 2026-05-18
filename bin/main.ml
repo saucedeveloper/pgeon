@@ -16,16 +16,25 @@ let print_logic (ast : Ast.logic_decl) =
     | Ast.EBind (binder, var, body) ->
         Printf.sprintf "%s %s. %s" binder var (print_expr body)
   in
+  let print_branch_tail = function
+    | None -> None
+    | Some (Ast.TailAny tail) -> Some (Printf.sprintf "...%s" tail)
+    | Some (Ast.TailMapped (f, tail)) -> Some (Printf.sprintf "%s(...%s)" f tail)
+  in
+  let print_branch_expr (exprs, tail) =
+    let parts = List.map print_expr exprs in
+    let parts =
+      match print_branch_tail tail with
+      | None -> parts
+      | Some tail -> parts @ [ tail ]
+    in
+    Printf.sprintf "(%s)" (String.concat "; " parts)
+  in
   let print_tree_expr = function
+    | [], rest -> Printf.sprintf "...%s" rest
     | branches, rest ->
-        String.concat " | "
-          (List.map
-             (fun (branch, rest) ->
-               Printf.sprintf "%s | %s"
-                 (String.concat "; " (List.map print_expr branch))
-                 rest)
-             branches)
-        ^ " | " ^ rest
+        String.concat " | " (List.map print_branch_expr branches)
+        ^ Printf.sprintf " | ...%s" rest
   in
   let print_where_clause (w : Ast.where_clause) =
     match w with
@@ -48,7 +57,9 @@ let print_logic (ast : Ast.logic_decl) =
               Printf.sprintf "%s(%s, %s)" name (print_expr left)
                 (print_expr right)
         in
-        Printf.sprintf "(%s = %s[%s])" dst (print_tree_expr src) op_str
+        Printf.sprintf "(...%s = %s[%s])" dst (print_tree_expr src) op_str
+    | Ast.WhereBranchAllMatch { branch; pattern } ->
+        Printf.sprintf "(...%s : %s)" branch (print_expr pattern)
   in
   let print_rule_decl (r : Ast.rule_decl) =
     match r with

@@ -280,11 +280,24 @@ and parse_comma_separated_until p closing parse_one =
     in
     loop []
 
+let token_starts_branch_tail p =
+  match current_kind p with
+  | ELLIPSIS -> true
+  | IDENT _ when peek_n_kind p 1 = LPAREN && peek_n_kind p 2 = ELLIPSIS ->
+      true
+  | _ -> false
+
 let parse_expr_list_until_branch_end p =
   let first = parse_expr p in
   let rec loop acc =
     match current_kind p with
-    | SEMI when peek_n_kind p 1 = ELLIPSIS -> List.rev acc
+    | SEMI
+      when peek_n_kind p 1 = ELLIPSIS
+           || (match peek_n_kind p 1 with
+              | IDENT _ ->
+                  peek_n_kind p 2 = LPAREN && peek_n_kind p 3 = ELLIPSIS
+              | _ -> false) ->
+        List.rev acc
     | SEMI when token_starts_expr (peek_n_kind p 1) ->
         ignore (advance p);
         let e = parse_expr p in
@@ -293,34 +306,40 @@ let parse_expr_list_until_branch_end p =
   in
   loop [ first ]
 
-let parse_optional_branch_rest p =
-  if consume_if p SEMI then (
-    expect_kind p ELLIPSIS;
-    expect_ident p)
-  else ""
+let parse_branch_tail p =
+  match current_kind p with
+  | ELLIPSIS ->
+      ignore (advance p);
+      TailAny (expect_ident p)
+  | IDENT f when peek_n_kind p 1 = LPAREN && peek_n_kind p 2 = ELLIPSIS ->
+      ignore (advance p);      (* f *)
+      expect_kind p LPAREN;
+      expect_kind p ELLIPSIS;
+      let name = expect_ident p in
+      expect_kind p RPAREN;
+      TailMapped (f, name)
+  | tok ->
+      error_at (current p) "expected branch tail, got %s"
+        (string_of_token_kind tok)
 
 let parse_branch_expr p =
   expect_kind p LPAREN;
-  let exprs, rest =
+  let exprs, tail =
     match current_kind p with
-    | ELLIPSIS ->
-        ignore (advance p);
-        let r = expect_ident p in
-        ([], r)
-    | RPAREN -> ([], "")
+    | _ when token_starts_branch_tail p -> ([], Some (parse_branch_tail p))
+    | RPAREN -> ([], None)
     | _ ->
         let exprs = parse_expr_list_until_branch_end p in
-        let rest =
+        let tail =
           if current_kind p = SEMI then (
             ignore (advance p);
-            expect_kind p ELLIPSIS;
-            expect_ident p)
-          else ""
+            Some (parse_branch_tail p))
+          else None
         in
-        (exprs, rest)
+        (exprs, tail)
   in
   expect_kind p RPAREN;
-  (exprs, rest)
+  (exprs, tail)
 
 let rec parse_tree_expr p =
   match current_kind p with
@@ -468,12 +487,26 @@ let parse_where_decl p =
     | ELLIPSIS ->
         expect_kind p ELLIPSIS;
         let dst = expect_ident p in
-        expect_kind p EQ;
-        let src = parse_tree_expr p in
-        expect_kind p LBRACK;
-        let op = parse_where_op p in
-        expect_kind p RBRACK;
-        WhereTreeClause { dst; src; op }
+        begin
+          match current_kind p with
+          | EQ ->
+              expect_kind p EQ;
+              let src = parse_tree_expr p in
+              expect_kind p LBRACK;
+              let op = parse_where_op p in
+              expect_kind p RBRACK;
+              WhereTreeClause { dst; src; op }
+          | COLON ->
+              expect_kind p COLON;
+              let pattern = parse_expr p in
+              WhereBranchAllMatch { branch = dst; pattern }
+          | tok ->
+              error_at (current p)
+                "expected '=' for tree where clause or ':' for branch \
+                 constraint after ...%s, got %s"
+                dst
+                (string_of_token_kind tok)
+        end
     | _ ->
         error_at (current p)
           "expected metavariable or tree variable in where clause"

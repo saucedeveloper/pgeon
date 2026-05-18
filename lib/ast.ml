@@ -8,8 +8,12 @@ type expr =
   | EApp of string * expr list
   | EBind of string * string * expr
 
+type branch_tail =
+  | TailAny of string (* ...B *)
+  | TailMapped of string * string (* f(...B), constructor + tail variable *)
+
 (* (P0 ; P1 ; ...B) is a branch expr, where P0; P1 are expressions and B is the rest of the branch. *)
-type branch_expr = expr list * string
+type branch_expr = expr list * branch_tail option
 
 (* if ...B is a branch_expr, then ...B | ...T is a tree rule, where ...B is the branch and ...T is the rest of the tree. *)
 type tree_expr = branch_expr list * string
@@ -22,6 +26,7 @@ type where_op =
 type where_clause =
   | WhereExprClause of { dst : string; src : expr; op : where_op }
   | WhereTreeClause of { dst : string; src : tree_expr; op : where_op }
+  | WhereBranchAllMatch of { branch : string; pattern : expr }
 
 type rule_decl =
   | RuleBranch of {
