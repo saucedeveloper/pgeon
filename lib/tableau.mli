@@ -30,10 +30,10 @@ val orElse : strategy -> strategy -> strategy
 val andThen : strategy -> strategy -> strategy
 val orAlt : strategy -> strategy -> strategy
 val andAlt : strategy -> strategy -> strategy
-val depth : int ref
 val repeat : strategy -> strategy
 val applyRule : rule -> strategy
 val applyRuleBang : rule -> strategy
 
 (* main engine *)
 val prove : proof_state -> strategy -> bool
+

@@ -23,58 +23,7 @@ type rule = {
   run_bang : (proof_state -> proof_state option) option;
 }
 
-(* let fair_flat_map (f : 'a -> 'b Seq.t) (xs : 'a Seq.t) : 'b Seq.t = *)
-(*   let rec pull_children (parents : 'a Seq.t) (children : 'b Seq.t list) () = *)
-(*     match children with *)
-(*     | child :: rest -> ( *)
-(*         match child () with *)
-(*         | Seq.Nil -> *)
-(*             pull_children parents rest () *)
-(*         | Seq.Cons (y, child') -> *)
-(*             Seq.Cons (y, expand_parents parents (rest @ [child']))) *)
-(*     | [] -> *)
-(*         expand_parents parents [] () *)
-(*   and expand_parents (parents : 'a Seq.t) (children : 'b Seq.t list) () = *)
-(*     match parents () with *)
-(*     | Seq.Nil -> *)
-(*         pull_children Seq.empty children () *)
-(*     | Seq.Cons (x, parents') -> *)
-(*         pull_children parents' (children @ [f x]) () *)
-(*   in *)
-(*   expand_parents xs [] *)
-
-let fair_flat_map (f : 'a -> 'b Seq.t) (xs : 'a Seq.t) : 'b Seq.t =
-  let children : 'b Seq.t Queue.t = Queue.create () in
-  let rec step (parents : 'a Seq.t) () =
-    (* Enqueue at most one new child stream from parents *)
-    let parents =
-      match parents () with
-      | Seq.Nil -> Seq.empty
-      | Seq.Cons (x, parents') ->
-          Queue.push (f x) children;
-          parents'
-    in
-    pull parents ()
-  and pull (parents : 'a Seq.t) () =
-    if Queue.is_empty children then (
-      (* No active children: try to get more parents *)
-      match parents () with
-      | Seq.Nil -> Seq.Nil
-      | Seq.Cons (x, parents') ->
-          Queue.push (f x) children;
-          pull parents' ())
-    else
-      let child = Queue.pop children in
-      match child () with
-      | Seq.Nil ->
-          (* dead child, skip it *)
-          pull parents ()
-      | Seq.Cons (y, child') ->
-          (* emit one result, rotate child tail to the back *)
-          Queue.push child' children;
-          Seq.Cons (y, step parents)
-  in
-  step xs
+let fair_flat_map f xs = xs |> Seq.map f |> Utils.diagonal
 
 (* combinators *)
 let skip = fun st -> Seq.return st
@@ -89,10 +38,8 @@ let orElse s1 s2 =
 let andThen s1 s2 = fun st -> Seq.flat_map s2 (s1 st)
 let orAlt s1 s2 = fun st -> Seq.interleave (s1 st) (s2 st)
 let andAlt s1 s2 = fun st -> fair_flat_map s2 (s1 st)
-let depth = ref 0
 
 let rec repeat s st () =
-  depth := !depth + 1;
   Seq.Cons (st, fair_flat_map (repeat s) (s st))
 
 let applyRule r = fun st -> r.run st
