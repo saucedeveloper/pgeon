@@ -5,8 +5,6 @@ function and  : formula formula -> formula
 
 function box : formula -> formula
 
-function dummy: -> formula
-
 rule rAxiom   : P ; not(P) ==X
 
 rule rAnd     : and(P, Q)       ==> P ; Q
@@ -17,11 +15,9 @@ rule rTheta   : P; Q ==> P
 
 rule rT       : box(P) ==> box(P) ; P
 
-tree rule rS4v1 : (not(box(P))) | ...T --> (not(P) ) | ...T
-tree rule rS4v2 : (box(X) ; not(box(P)) ) | ...T --> (box(X) ; not(P)) | ...T
-tree rule rS4v3 : (box(X) ; box(Y) ; not(box(P)) ) | ...T --> (box(X) ; box(Y) ; not(P) ) | ...T
-tree rule rS4v4 : (box(X) ; box(Y) ; box(Z) ; not(box(P)) ) | ...T --> (box(X) ; box(Y) ; box(Z) ; not(P) ) | ...T
-tree rule rS4v5 : (box(X) ; box(Y) ; box(Z) ; box(W) ; not(box(P)) ) | ...T --> (box(X) ; box(Y) ; box(Z) ; box(W) ; not(P) ) | ...T
+tree rule rS4 : (not(box(P)); ...B) | ...T --> (not(P); ...B) | ...T
+where {
+  ...B : box(_)
+}
 
-main strategy prove : (((rAxiom || rAnd || rNotNot || rNotAnd || rS4v1 ||
-rS4v2 || rS4v3 || rS4v4 || rS4v5) &| rTheta) &| rT)*
+main strategy prove : rTheta ; rS4 ; rNotNot; rAnd; rAxiom

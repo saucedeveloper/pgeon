@@ -50,4 +50,6 @@ strategy beta : rOr || rImpl || rNotAnd
 strategy delta : rExists || rNotForall
 strategy gamma : rForall || rNotExists
 
-main strategy prove : (closure || alpha || delta || beta &| gamma)*
+strategy step : alpha || delta || beta || gamma
+
+main strategy prove : (closure || step)*
