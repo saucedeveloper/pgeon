@@ -226,7 +226,10 @@ let eval_where_expr_clause runtime st lhs_subst (env : rule_env)
       | None -> None
       | Some formulas ->
           let pattern = instantiate_rule_expr lhs_subst env pattern in
-          if List.for_all (fun (_, term) -> pattern_matches pattern term) formulas
+          if
+            List.for_all
+              (fun (_, term) -> pattern_matches pattern term)
+              formulas
           then Some (st, env, branch_env, tree_env)
           else None)
 
@@ -340,16 +343,14 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
         match Term.match_terms candidate_terms lhs_terms with
         | None -> None
         | Some lhs_subst -> (
-            Log.debug
-              "RULE %s matched\ncandidate=%s\nrest_branch=%s\n"
-              name
+            Log.debug "RULE %s matched\ncandidate=%s\nrest_branch=%s\n" name
               (string_of_branch candidate)
               (string_of_branch rest_branch);
             match eval_where_clauses reg st lhs_subst [] [] where with
             | None ->
                 Log.debug "RULE %s: where clauses failed\n" name;
                 None
-            | Some (st, env, _, _) ->
+            | Some (st, env, _, _) -> (
                 let rhs_instantiated =
                   List.map
                     (List.map (instantiate_rule_expr_from_term lhs_subst env))
@@ -365,8 +366,8 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                       build_branches st.next_formula_id rest_branch
                         rhs_instantiated
                     in
-                    Log.debug
-                      "INVERTIBLE rule %s applied on candidate=%s\n" name
+                    Log.debug "INVERTIBLE rule %s applied on candidate=%s\n"
+                      name
                       (string_of_branch candidate);
                     Some ({ st with next_formula_id }, new_branches)
                 | Ast.NonInvertible ->
@@ -387,7 +388,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                             next_formula_id;
                             applied = cache_insert st.applied key;
                           },
-                          new_branches ))
+                          new_branches )))
       in
       {
         id;
@@ -396,9 +397,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
             generate_candidates_branch_rules st.tree arity
             |> Seq.filter_map
                  (fun (rest_tree, _branch, rest_branch, candidate) ->
-                   match
-                     apply_branch_candidate st rest_branch candidate
-                   with
+                   match apply_branch_candidate st rest_branch candidate with
                    | None -> None
                    | Some (st, branches) ->
                        Some { st with tree = branches @ rest_tree }));
@@ -418,8 +417,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                            | None -> None
                            | Some (st, branches) ->
                                Some { st with tree = branches @ rest_tree })
-                    |> Seq.uncons
-                    |> Option.map fst
+                    |> Seq.uncons |> Option.map fst
                   in
                   let rec loop matched st =
                     match first_application st with
@@ -468,59 +466,56 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
       let run_tree st =
         generate_candidates_tree_rules st.tree lhs_branches
         |> Seq.filter_map (fun (rest_tree, matched_branches) ->
-               let candidate_terms =
-                 matched_branches
-                 |> List.concat_map (fun (_, _, candidate) ->
-                        List.map snd candidate)
-               in
-               let lhs_terms =
-                 matched_branches
-                 |> List.concat_map (fun ((exprs, _), _, _) ->
-                        List.map term_of_expr exprs)
-               in
-               match Term.match_terms candidate_terms lhs_terms with
-               | None -> None
-               | Some subst ->
-                   let branch_env =
-                     matched_branches
-                     |> List.filter_map
-                          (fun ((_, tail), rest_branch, _candidate) ->
-                            match tail with
-                            | None ->
-                                if rest_branch = [] then Some [] else None
-                            | Some (Ast.TailAny tail_var) ->
-                                Some [ (tail_var, rest_branch) ]
-                            | Some (Ast.TailMapped (f, tail_var)) ->
-                                if
-                                  List.for_all
-                                    (function
-                                      | _, Term.App (g, [ _ ]) -> f = g
-                                      | _ -> false)
-                                    rest_branch
-                                then Some [ (tail_var, rest_branch) ]
-                                else None)
-                   in
-                   if List.length branch_env <> List.length matched_branches
-                   then None
-                   else
-                     let branch_env = List.concat branch_env in
-                     let tree_env = [ (lhs_tree_tail, rest_tree) ] in
-                     match
-                       eval_where_clauses reg st subst branch_env tree_env
-                         where
-                     with
-                     | None -> None
-                     | Some (st, env, branch_env, tree_env) -> (
-                         match
-                           instantiate_tree_expr subst env branch_env tree_env
-                             st.next_formula_id rhs
-                         with
-                         | None -> None
-                         | Some (tree, next_formula_id) ->
-                             Log.debug
-                               "TREE RULE %s succeeded\nnew_tree=\n%s\n" name
-                               (string_of_tree tree);
-                             Some { st with tree; next_formula_id }))
+            let candidate_terms =
+              matched_branches
+              |> List.concat_map (fun (_, _, candidate) ->
+                  List.map snd candidate)
+            in
+            let lhs_terms =
+              matched_branches
+              |> List.concat_map (fun ((exprs, _), _, _) ->
+                  List.map term_of_expr exprs)
+            in
+            match Term.match_terms candidate_terms lhs_terms with
+            | None -> None
+            | Some subst -> (
+                let branch_env =
+                  matched_branches
+                  |> List.filter_map
+                       (fun ((_, tail), rest_branch, _candidate) ->
+                         match tail with
+                         | None -> if rest_branch = [] then Some [] else None
+                         | Some (Ast.TailAny tail_var) ->
+                             Some [ (tail_var, rest_branch) ]
+                         | Some (Ast.TailMapped (f, tail_var)) ->
+                             if
+                               List.for_all
+                                 (function
+                                   | _, Term.App (g, [ _ ]) -> f = g
+                                   | _ -> false)
+                                 rest_branch
+                             then Some [ (tail_var, rest_branch) ]
+                             else None)
+                in
+                if List.length branch_env <> List.length matched_branches then
+                  None
+                else
+                  let branch_env = List.concat branch_env in
+                  let tree_env = [ (lhs_tree_tail, rest_tree) ] in
+                  match
+                    eval_where_clauses reg st subst branch_env tree_env where
+                  with
+                  | None -> None
+                  | Some (st, env, branch_env, tree_env) -> (
+                      match
+                        instantiate_tree_expr subst env branch_env tree_env
+                          st.next_formula_id rhs
+                      with
+                      | None -> None
+                      | Some (tree, next_formula_id) ->
+                          Log.debug "TREE RULE %s succeeded\nnew_tree=\n%s\n"
+                            name (string_of_tree tree);
+                          Some { st with tree; next_formula_id })))
       in
       {
         id;

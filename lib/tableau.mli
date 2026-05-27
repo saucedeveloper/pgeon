@@ -31,7 +31,6 @@ val fail : strategy
 (* Left-biased choice: try the first strategy, then the second only if the
    first produces no result. *)
 val orElse : strategy -> strategy -> strategy
-
 val andThen : strategy -> strategy -> strategy
 
 (* Fair interleaving of alternatives. *)
@@ -42,7 +41,6 @@ val andAlt : strategy -> strategy -> strategy
 
 (* Repetition, including the zero-step result. *)
 val repeat : strategy -> strategy
-
 val applyRule : rule -> strategy
 val applyRuleBang : rule -> strategy
 

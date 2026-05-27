@@ -281,8 +281,7 @@ and parse_comma_separated_until p closing parse_one =
 let token_starts_branch_tail p =
   match current_kind p with
   | ELLIPSIS -> true
-  | IDENT _ when peek_n_kind p 1 = LPAREN && peek_n_kind p 2 = ELLIPSIS ->
-      true
+  | IDENT _ when peek_n_kind p 1 = LPAREN && peek_n_kind p 2 = ELLIPSIS -> true
   | _ -> false
 
 let parse_expr_list_until_branch_end p =
@@ -291,10 +290,10 @@ let parse_expr_list_until_branch_end p =
     match current_kind p with
     | SEMI
       when peek_n_kind p 1 = ELLIPSIS
-           || (match peek_n_kind p 1 with
-              | IDENT _ ->
-                  peek_n_kind p 2 = LPAREN && peek_n_kind p 3 = ELLIPSIS
-              | _ -> false) ->
+           ||
+           match peek_n_kind p 1 with
+           | IDENT _ -> peek_n_kind p 2 = LPAREN && peek_n_kind p 3 = ELLIPSIS
+           | _ -> false ->
         List.rev acc
     | SEMI when token_starts_expr (peek_n_kind p 1) ->
         ignore (advance p);
@@ -310,7 +309,8 @@ let parse_branch_tail p =
       ignore (advance p);
       TailAny (expect_ident p)
   | IDENT f when peek_n_kind p 1 = LPAREN && peek_n_kind p 2 = ELLIPSIS ->
-      ignore (advance p);      (* f *)
+      ignore (advance p);
+      (* f *)
       expect_kind p LPAREN;
       expect_kind p ELLIPSIS;
       let name = expect_ident p in
@@ -487,25 +487,23 @@ let parse_where_decl p =
     | ELLIPSIS ->
         expect_kind p ELLIPSIS;
         let dst = expect_ident p in
-        begin
-          match current_kind p with
-          | EQ ->
-              expect_kind p EQ;
-              let src = parse_tree_expr p in
-              expect_kind p LBRACK;
-              let op = parse_where_op p in
-              expect_kind p RBRACK;
-              WhereTreeClause { dst; src; op }
-          | COLON ->
-              expect_kind p COLON;
-              let pattern = parse_expr p in
-              WhereBranchAllMatch { branch = dst; pattern }
-          | tok ->
-              error_at (current p)
-                "expected '=' for tree where clause or ':' for branch \
-                 constraint after ...%s, got %s"
-                dst
-                (string_of_token_kind tok)
+        begin match current_kind p with
+        | EQ ->
+            expect_kind p EQ;
+            let src = parse_tree_expr p in
+            expect_kind p LBRACK;
+            let op = parse_where_op p in
+            expect_kind p RBRACK;
+            WhereTreeClause { dst; src; op }
+        | COLON ->
+            expect_kind p COLON;
+            let pattern = parse_expr p in
+            WhereBranchAllMatch { branch = dst; pattern }
+        | tok ->
+            error_at (current p)
+              "expected '=' for tree where clause or ':' for branch constraint \
+               after ...%s, got %s"
+              dst (string_of_token_kind tok)
         end
     | _ ->
         error_at (current p)

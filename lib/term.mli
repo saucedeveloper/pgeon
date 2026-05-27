@@ -14,9 +14,9 @@ type substitution = (name * t) list
 type meta_substitution = MetaSubstitution of substitution
 
 val substitute : meta_substitution -> t -> t
-
 val match_terms : t list -> t list -> meta_substitution option
 
 type free_substitution = FreeSubstitution of substitution
+
 val free_substitute : free_substitution -> t -> t
 val unify : t -> t -> free_substitution option

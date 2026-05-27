@@ -85,7 +85,8 @@ let unify t1 t2 =
         if s = t then go subst tl
         else
           match (s, t) with
-          | Fvar x, t | t, Fvar x -> if occurs x t then None else go ((x,t)::subst) tl
+          | Fvar x, t | t, Fvar x ->
+              if occurs x t then None else go ((x, t) :: subst) tl
           | Bvar x, Bvar y when x = y -> go subst tl
           | Mvar x, Mvar y when x = y -> go subst tl
           | App (f1, args1), App (f2, args2)

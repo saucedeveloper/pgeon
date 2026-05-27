@@ -19,7 +19,8 @@ let print_logic (ast : Ast.logic_decl) =
   let print_branch_tail = function
     | None -> None
     | Some (Ast.TailAny tail) -> Some (Printf.sprintf "...%s" tail)
-    | Some (Ast.TailMapped (f, tail)) -> Some (Printf.sprintf "%s(...%s)" f tail)
+    | Some (Ast.TailMapped (f, tail)) ->
+        Some (Printf.sprintf "%s(...%s)" f tail)
   in
   let print_branch_expr (exprs, tail) =
     let parts = List.map print_expr exprs in

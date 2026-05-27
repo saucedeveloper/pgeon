@@ -38,10 +38,7 @@ let orElse s1 s2 =
 let andThen s1 s2 = fun st -> Seq.flat_map s2 (s1 st)
 let orAlt s1 s2 = fun st -> Seq.interleave (s1 st) (s2 st)
 let andAlt s1 s2 = fun st -> fair_flat_map s2 (s1 st)
-
-let rec repeat s st () =
-  Seq.Cons (st, fair_flat_map (repeat s) (s st))
-
+let rec repeat s st () = Seq.Cons (st, fair_flat_map (repeat s) (s st))
 let applyRule r = fun st -> r.run st
 
 let applyRuleBang r =
