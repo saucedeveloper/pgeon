@@ -103,7 +103,7 @@ let print_logic (ast : Ast.logic_decl) =
         Printf.sprintf "(%s &| %s)" (print_strategy_expr e1)
           (print_strategy_expr e2)
     | Ast.SAndAlt (e1, e2) ->
-        Printf.sprintf "(%s & %s)" (print_strategy_expr e1)
+        Printf.sprintf "(%s &; %s)" (print_strategy_expr e1)
           (print_strategy_expr e2)
     | Ast.SRepeat e -> Printf.sprintf "(%s)*" (print_strategy_expr e)
   in

@@ -40,7 +40,7 @@ type token_kind =
   | BANG (* !   *)
   | QMARK (* ?   *)
   | AMPEROR (* &|  *)
-  | AMPERSAND (* &   *)
+  | AMPSEMI (* &;  *)
   | EOF
 
 type token = { kind : token_kind; line : int; col : int }
@@ -79,7 +79,7 @@ let string_of_token_kind = function
   | BANG -> "!"
   | QMARK -> "?"
   | AMPEROR -> "&|"
-  | AMPERSAND -> "&"
+  | AMPSEMI -> "&;"
   | EOF -> "end of file"
 
 let token_starts_expr = function IDENT _ | LPAREN -> true | _ -> false
@@ -159,8 +159,10 @@ let lex_string (input : string) : token list =
       | '?' -> loop (i + 1) line (col + 1) ({ kind = QMARK; line; col } :: acc)
       | '&' when i + 1 < len && input.[i + 1] = '|' ->
           loop (i + 2) line (col + 2) ({ kind = AMPEROR; line; col } :: acc)
+      | '&' when i + 1 < len && input.[i + 1] = ';' ->
+          loop (i + 2) line (col + 2) ({ kind = AMPSEMI; line; col } :: acc)
       | '&' ->
-          loop (i + 1) line (col + 1) ({ kind = AMPERSAND; line; col } :: acc)
+          parse_errorf "unexpected character '&' at line %d, column %d" line col
       | c when is_ident_start c ->
           let j = scan_ident (i + 1) in
           let s = String.sub input i (j - i) in
@@ -569,7 +571,7 @@ and parse_strategy_comp_tail p left =
   if consume_if p SEMI then
     let right = parse_strategy_postfix p in
     parse_strategy_comp_tail p (Ast.SAndThen (left, right))
-  else if consume_if p AMPERSAND then
+  else if consume_if p AMPSEMI then
     let right = parse_strategy_postfix p in
     parse_strategy_comp_tail p (Ast.SAndAlt (left, right))
   else left

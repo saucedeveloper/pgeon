@@ -51,4 +51,4 @@ strategy delta : rExists || rNotForall
 strategy gamma : rForall || rNotExists
 strategy sat : (closure || alpha || delta || beta)*
 
-main strategy prove : gamma* & sat
+main strategy prove : gamma* &; sat
