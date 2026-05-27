@@ -4,6 +4,8 @@ exception Parse_error of string
 
 let parse_errorf fmt = Printf.ksprintf (fun s -> raise (Parse_error s)) fmt
 
+(* Lexer *)
+
 type token_kind =
   | IDENT of string
   | KW_MAIN
@@ -224,11 +226,7 @@ let parse_arrow_kind p =
   | tok ->
       error_at tok "expected rule arrow, got %s" (string_of_token_kind tok.kind)
 
-let ensure_no_bang_or_qmark p context =
-  match current_kind p with
-  | BANG | QMARK ->
-      error_at (current p) "%s using !, ?, or !? is not supported yet" context
-  | _ -> ()
+(* Expressions, branches, and trees *)
 
 let rec parse_expr p =
   match current_kind p with
@@ -405,6 +403,8 @@ let parse_rule_branch_rhs p =
   in
   loop [ first ]
 
+(* Declarations *)
+
 let parse_function_decl_after_keyword p =
   let rec collect_names acc =
     match current_kind p with
@@ -546,6 +546,8 @@ let parse_tree_rule_decl_after_keywords p =
   let where = if current_kind p = KW_WHERE then parse_where_decl p else [] in
   RuleTree { name; arrow; lhs; rhs; where }
 
+(* Strategies *)
+
 let rec parse_strategy_expr p = parse_strategy_choice p
 
 and parse_strategy_choice p =
@@ -604,6 +606,8 @@ let parse_strategy_decl_after_keyword p =
   expect_kind p COLON;
   let body = parse_strategy_expr p in
   { name; body }
+
+(* Entry points *)
 
 let parse_logic_string s =
   let p = parser_of_tokens (lex_string s) in

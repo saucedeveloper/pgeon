@@ -1,0 +1,23 @@
+/* Dreadbury Mansion / Aunt Agatha benchmark.
+   Source problem: agatha.p (TPTP PUZ001-1).
+
+   This is kept as an exploratory benchmark. It is intentionally not part of
+   the one-second LK/FO Makefile suite yet; the current search strategy needs
+   stronger branch caching/subsumption before this problem is practical. */
+
+function agatha butler charles : -> term
+function hates killed richer : term term -> formula
+function lives : term -> formula
+
+lives(agatha()) ;
+lives(butler()) ;
+lives(charles()) ;
+forall Y. forall X. or(not(killed(X, Y)), not(richer(X, Y))) ;
+forall X. or(not(hates(agatha(), X)), not(hates(charles(), X))) ;
+forall X. or(or(not(hates(X, agatha())), not(hates(X, butler()))), not(hates(X, charles()))) ;
+hates(agatha(), agatha()) ;
+hates(agatha(), charles()) ;
+forall Y. forall X. or(not(killed(X, Y)), hates(X, Y)) ;
+forall X. or(not(hates(agatha(), X)), hates(butler(), X)) ;
+forall X. or(or(not(lives(X)), richer(X, agatha())), hates(butler(), X)) ;
+or(killed(butler(), agatha()), killed(charles(), agatha())) ;

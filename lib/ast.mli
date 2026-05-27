@@ -8,7 +8,6 @@ type expr =
   | EApp of string * expr list
   | EBind of string * string * expr
 
-
 type branch_tail =
   | TailAny of string (* ...B *)
   | TailMapped of string * string (* f(...B), constructor + tail variable *)

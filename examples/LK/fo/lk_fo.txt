@@ -49,7 +49,6 @@ strategy alpha : rAnd || rNotNot || rNotOr || rNotImpl
 strategy beta : rOr || rImpl || rNotAnd
 strategy delta : rExists || rNotForall
 strategy gamma : rForall || rNotExists
+strategy sat : (closure || alpha || delta || beta)*
 
-strategy step : alpha || delta || beta || gamma
-
-main strategy prove : (closure || step)*
+main strategy prove : gamma* & sat

@@ -20,20 +20,31 @@ type strategy = proof_state -> proof_state Seq.t
 type rule = {
   id : int;
   run : proof_state -> proof_state Seq.t;
+  (* Deterministic eager application. [None] means the rule cannot be used with
+     the strategy postfix [!]. *)
   run_bang : (proof_state -> proof_state option) option;
 }
 
-(* combinators *)
 val skip : strategy
 val fail : strategy
+
+(* Left-biased choice: try the first strategy, then the second only if the
+   first produces no result. *)
 val orElse : strategy -> strategy -> strategy
+
 val andThen : strategy -> strategy -> strategy
+
+(* Fair interleaving of alternatives. *)
 val orAlt : strategy -> strategy -> strategy
+
+(* Fair sequencing using diagonalization. *)
 val andAlt : strategy -> strategy -> strategy
+
+(* Repetition, including the zero-step result. *)
 val repeat : strategy -> strategy
+
 val applyRule : rule -> strategy
 val applyRuleBang : rule -> strategy
 
 (* main engine *)
 val prove : proof_state -> strategy -> bool
-

@@ -1,3 +1,5 @@
+(** Compile parsed declarations into an initial proof state and executable
+    strategy. *)
 val compile :
   Registry.t ->
   Ast.logic_decl ->

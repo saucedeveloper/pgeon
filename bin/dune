@@ -1,8 +1,8 @@
 (executable
- (name       main)
+ (name main)
  (public_name pgeon)
- (modules    main)
- (libraries  pgeon)
- (modes      exe byte)
- (ocamlc_flags (:standard -custom -g))
-)
+ (modules main)
+ (libraries pgeon)
+ (modes exe byte)
+ (ocamlc_flags
+  (:standard -custom -g)))
