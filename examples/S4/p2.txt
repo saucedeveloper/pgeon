@@ -1,4 +1,0 @@
-function dummy q : -> formula
-
-not(box(not(and(q(), not(q())))));
-dummy();
