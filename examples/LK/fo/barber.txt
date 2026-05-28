@@ -1,14 +1,9 @@
 function barber : -> term
-
 function shaves : term term -> formula
-
 forall x.
   impl(shaves(barber(), x),
           not(shaves(x,x)));
-
 forall x.
   impl(not(shaves(x,x)),
           shaves(barber(), x));
-
-
 

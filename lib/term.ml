@@ -1,4 +1,4 @@
-type name = int
+type name = string
 
 type t =
   | Bvar of int (* de Bruijn index *)
@@ -8,240 +8,92 @@ type t =
   | App of name * t list
   | Bind of name * t
 
-type substitution_map = (name * t) list
-
-type substitution =
-  | MetaSubstitution of substitution_map
-  | FreeVarSubstitution of substitution_map
-
-let rec occurs n = function
-  | Bvar _ | Fvar _ -> false
-  | Mvar n' -> n = n'
-  | App (_, p) -> List.exists (occurs n) p
-  | Bind (_, t) -> occurs n t
-
-let equal (a : t) b = a = b
-
-let rec debug_string = function
-  | Bvar i -> Printf.sprintf "B%d" i
-  | Fvar i -> Printf.sprintf "F%d" i
-  | Mvar i -> Printf.sprintf "M%d" i
-  | App (f, tl) ->
-      let args =
-        match tl with
-        | [] -> ""
-        | _ ->
-            let inner = List.map debug_string tl |> String.concat ", " in
-            Printf.sprintf "(%s)" inner
-      in
-      Printf.sprintf "f%d%s" f args
-  | Bind (b, t) -> Printf.sprintf "bind%d(%s)" b (debug_string t)
-
-let var_open u t =
-  let rec var_open k u = function
-    | Bvar i as t -> if i = k then u else t
-    | (Fvar _ | Mvar _) as t -> t
-    | App (name, tl) -> App (name, List.map (var_open k u) tl)
-    | Bind (name, t) -> Bind (name, var_open (k + 1) u t)
+let var_open t u =
+  let rec aux k = function
+    | Bvar i -> if i = k then u else Bvar i
+    | (Fvar _ as t) | (Mvar _ as t) -> t
+    | App (f, args) -> App (f, List.map (aux k) args)
+    | Bind (b, body) -> Bind (b, aux (k + 1) body)
   in
-  snd (List.fold_left (fun (i, t) u -> (i + 1, var_open i u t)) (0, t) u)
+  aux 0 t
 
-let rec substitute_meta_map (subs : substitution_map) = function
-  | (Bvar _ | Fvar _) as t -> t
-  | Mvar x -> ( match List.assoc_opt x subs with None -> Mvar x | Some u -> u)
-  | App (name, tl) -> App (name, List.map (substitute_meta_map subs) tl)
-  | Bind (name, t) -> Bind (name, substitute_meta_map subs t)
+type substitution = (name * t) list
+type meta_substitution = MetaSubstitution of substitution
 
-let rec substitute_free_map (subs : substitution_map) = function
-  | Bvar _ as t -> t
-  | Fvar x -> ( match List.assoc_opt x subs with None -> Fvar x | Some u -> u)
-  | Mvar _ as t -> t
-  | App (name, tl) -> App (name, List.map (substitute_free_map subs) tl)
-  | Bind (name, t) -> Bind (name, substitute_free_map subs t)
-
-let substitute (subs : substitution) term =
-  match subs with
-  | MetaSubstitution map -> substitute_meta_map map term
-  | FreeVarSubstitution map -> substitute_free_map map term
-
-let rec match_terms (sigma : substitution_map) (candidate : t list)
-    (pattern : t list) : substitution_map option =
-  match (candidate, pattern) with
-  | [], [] -> Some sigma
-  | [], _ | _, [] -> None
-  | t :: tl, t' :: tl' -> (
-      match (t, t') with
-      | Bvar i, Bvar j when i = j -> match_terms sigma tl tl'
-      | Fvar n, Fvar m when n = m -> match_terms sigma tl tl'
-      | App (f, p), App (f', p') when f = f' && List.length p = List.length p'
-        ->
-          match_terms sigma (p @ tl) (p' @ tl')
-      | _, Mvar n when not (occurs n t) ->
-          let binding = (n, t) in
-          let sigma' = binding :: sigma in
-          match_terms sigma'
-            (List.map (substitute_meta_map [ binding ]) tl)
-            (List.map (substitute_meta_map [ binding ]) tl')
-      | Bind (f, t), Bind (f', t') when f = f' ->
-          match_terms sigma (t :: tl) (t' :: tl')
-      | Mvar _, _ ->
-          Log.error
-            "[term:match] status=error \
-             reason=unexpected_meta_variable_in_candidate term = %s\n"
-            (debug_string t);
-          None
-      | _ -> None)
-
-let perm_n (n : int) (m : int) : int list Seq.t =
-  let available used x = not (List.mem x used) in
-  let extend perm =
-    Seq.filter_map
-      (fun x -> if available perm x then Some (x :: perm) else None)
-      (Seq.init n Fun.id)
+let substitute (MetaSubstitution sigma) t =
+  let rec go t =
+    match t with
+    | Bvar _ | Fvar _ -> t
+    | Mvar m -> (
+        match List.assoc_opt m sigma with None -> t | Some bound -> go bound)
+    | App (f, args) -> App (f, List.map go args)
+    | Bind (b, body) -> Bind (b, go body)
   in
-  let step seq = Seq.flat_map extend seq in
-  let perms =
-    Seq.fold_left (fun acc _ -> step acc) (Seq.return []) (Seq.init m Fun.id)
+  go t
+
+let match_terms (candidate : t list) (pattern : t list) :
+    meta_substitution option =
+  let rec go (sigma : substitution) cand pat =
+    match (cand, pat) with
+    | [], [] -> Some sigma
+    | [], _ | _, [] -> None
+    | c :: cs, p :: ps -> (
+        match (c, p) with
+        | Bvar i, Bvar j when i = j -> go sigma cs ps
+        | Fvar x, Fvar y when x = y -> go sigma cs ps
+        | App (f1, args1), App (f2, args2)
+          when f1 = f2 && List.length args1 = List.length args2 ->
+            go sigma (args1 @ cs) (args2 @ ps)
+        | Bind (b1, t1), Bind (b2, t2) when b1 = b2 ->
+            go sigma (t1 :: cs) (t2 :: ps)
+        | _, Mvar m -> (
+            match List.assoc_opt m sigma with
+            | None -> go ((m, c) :: sigma) cs ps
+            | Some bound -> if bound = c then go sigma cs ps else None)
+        | Mvar _, _ -> None
+        | _ -> None)
   in
-  Seq.map List.rev perms
+  go [] candidate pattern |> Option.map (fun sigma -> MetaSubstitution sigma)
 
-let match_rule (branch : t list) (pattern : t list) :
-    (int list * substitution) Seq.t =
-  if List.length pattern > List.length branch then Seq.empty
-  else
-    Seq.filter_map
-      (fun perm ->
-        let candidate = List.map (List.nth branch) perm in
-        match match_terms [] candidate pattern with
-        | None -> None
-        | Some sigma -> Some (perm, MetaSubstitution sigma))
-      (perm_n (List.length branch) (List.length pattern))
+type free_substitution = FreeSubstitution of substitution
 
-let unify =
-  let rec occurs_free x = function
-    | Bvar _ -> false
+let free_substitute (FreeSubstitution sigma) t =
+  let rec go t =
+    match t with
+    | Bvar _ | Mvar _ -> t
+    | Fvar x -> (
+        match List.assoc_opt x sigma with None -> t | Some bound -> go bound)
+    | App (f, args) -> App (f, List.map go args)
+    | Bind (b, body) -> Bind (b, go body)
+  in
+  go t
+
+let unify t1 t2 =
+  let rec occurs x = function
+    | Bvar _ | Mvar _ -> false
     | Fvar y -> x = y
-    | Mvar _ -> false
-    | App (_, args) -> List.exists (occurs_free x) args
-    | Bind (_, body) -> occurs_free x body
+    | App (_, args) -> List.exists (occurs x) args
+    | Bind (_, body) -> occurs x body
   in
-  let warn_unexpected_mvar () =
-    Log.error
-      "[term:unify] status=error reason=unexpected_meta_variable_in_unification\n"
+  let rec go (subst : substitution) = function
+    | [] -> Some subst
+    | (s, t) :: tl -> (
+        let s, t =
+          ( free_substitute (FreeSubstitution subst) s,
+            free_substitute (FreeSubstitution subst) t )
+        in
+        if s = t then go subst tl
+        else
+          match (s, t) with
+          | Fvar x, t | t, Fvar x ->
+              if occurs x t then None else go ((x, t) :: subst) tl
+          | Bvar x, Bvar y when x = y -> go subst tl
+          | Mvar x, Mvar y when x = y -> go subst tl
+          | App (f1, args1), App (f2, args2)
+            when f1 = f2 && List.length args1 = List.length args2 ->
+              go subst (List.combine args1 args2 @ tl)
+          | Bind (b1, body1), Bind (b2, body2) when b1 = b2 ->
+              go subst ((body1, body2) :: tl)
+          | _ -> None)
   in
-  let apply subs term = substitute_free_map subs term in
-  let rec bind subs x term =
-    let term = apply subs term in
-    if occurs_free x term then None
-    else
-      let single = [ (x, term) ] in
-      let subs_without_x = List.filter (fun (y, _) -> y <> x) subs in
-      let subs_updated =
-        List.map
-          (fun (y, ty) -> (y, substitute_free_map single ty))
-          subs_without_x
-      in
-      Some ((x, term) :: subs_updated)
-  and unify_term subs t1 t2 =
-    let t1 = apply subs t1 in
-    let t2 = apply subs t2 in
-    match (t1, t2) with
-    | Mvar _, _ | _, Mvar _ ->
-        warn_unexpected_mvar ();
-        None
-    | Fvar x, Fvar y when x = y -> Some subs
-    | Fvar x, _ -> (
-        match bind subs x t2 with
-        | None -> None
-        | Some subs' -> Some subs')
-    | _, Fvar y -> (
-        match bind subs y t1 with
-        | None -> None
-        | Some subs' -> Some subs')
-    | Bvar i, Bvar j when i = j -> Some subs
-    | App (f, args), App (g, args') when f = g && List.length args = List.length args'
-      ->
-        unify_list subs args args'
-    | Bind (f, body), Bind (g, body') when f = g -> unify_term subs body body'
-    | _ -> None
-  and unify_list subs l1 l2 =
-    match (l1, l2) with
-    | [], [] -> Some subs
-    | t1 :: tl1, t2 :: tl2 -> (
-        match unify_term subs t1 t2 with
-        | None -> None
-        | Some subs' -> unify_list subs' tl1 tl2)
-    | _ -> None
-  in
-  fun lhs rhs ->
-    match unify_list [] lhs rhs with
-    | None -> None
-    | Some subs -> Some (FreeVarSubstitution subs)
-
-let meta_substitution_add subst (name, term) =
-  match subst with
-  | MetaSubstitution subs ->
-      MetaSubstitution ((name, term) :: List.remove_assoc name subs)
-  | FreeVarSubstitution _ ->
-      Log.error
-        "[term:meta_substitution_add] status=error \
-         reason=expected_meta_substitution\n";
-      subst
-
-let merge_meta_substitutions base extras =
-  match (base, extras) with
-  | MetaSubstitution base, MetaSubstitution extras ->
-      let merged =
-        List.fold_left
-          (fun acc (name, term) ->
-            match acc with
-            | None -> None
-            | Some subs -> (
-                match List.assoc_opt name subs with
-                | Some existing ->
-                    if equal existing term then Some subs else None
-                | None -> Some ((name, term) :: subs)))
-          (Some base) extras
-      in
-      Option.map (fun subs -> MetaSubstitution subs) merged
-  | _ ->
-      Log.error
-        "[term:merge_meta_substitutions] status=error \
-         reason=expected_meta_substitutions\n";
-      None
-
-let free_substitution_add subst (name, term) =
-  match subst with
-  | FreeVarSubstitution subs ->
-      FreeVarSubstitution ((name, term) :: List.remove_assoc name subs)
-  | MetaSubstitution _ ->
-      Log.error
-        "[term:free_substitution_add] status=error \
-         reason=expected_free_substitution\n";
-      subst
-
-let merge_free_substitutions base extras =
-  match (base, extras) with
-  | FreeVarSubstitution base, FreeVarSubstitution extras ->
-      let merged =
-        List.fold_left
-          (fun acc (name, term) ->
-            match acc with
-            | None -> None
-            | Some subs -> (
-                match List.assoc_opt name subs with
-                | Some existing ->
-                    if equal existing term then Some subs else None
-                | None -> Some ((name, term) :: subs)))
-          (Some base) extras
-      in
-      Option.map (fun subs -> FreeVarSubstitution subs) merged
-  | _ ->
-      Log.error
-        "[term:merge_free_substitutions] status=error \
-         reason=expected_free_substitutions\n";
-      None
-
-let is_empty_substitution = function
-  | MetaSubstitution [] | FreeVarSubstitution [] -> true
-  | _ -> false
+  go [] [ (t1, t2) ] |> Option.map (fun sigma -> FreeSubstitution sigma)

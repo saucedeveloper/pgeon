@@ -10,7 +10,7 @@ EXEC=dune exec -- pgeon $(LOGIC)
 all: unsat sat clean
 
 %.log: %
-	@timeout 5 $(EXEC) $< > $@ 2>/dev/null || echo "Timeout" > $@
+	@timeout 1 $(EXEC) $< > $@ 2>/dev/null || echo "Timeout" > $@
 
 unsat: $(UNSATLOG)
 	@echo -e "\033[1;33m>>>> Testing success files:\033[0;39m";

@@ -41,6 +41,5 @@ strategy reduce_once : ax || top_ax || bot_ax || not_right || not_left ||
   equ_right || equ_left || and_right || and_left || or_right1 || or_right2 ||
   or_left || imp_right || imp_left1 || imp_left2 || imp_left3 || imp_left4 ||
   imp_left5 || imp_left6 || imp_left7 || imp_left8
-strategy reduce_all : reduce_once*
-strategy reduce_fixed : (reduce_once ; reduce_fixed)?
-main strategy prove : reduce_all ; reduce_fixed?
+
+main strategy prove : reduce_once*

@@ -1,0 +1,7 @@
+function P : term -> formula
+function a b : -> term
+
+forall x. not(P(x));
+
+not(and(P(a(), P(b()))));
+
