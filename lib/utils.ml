@@ -19,10 +19,10 @@ let diagonal rows =
     | x :: rest -> Seq.Cons (x, next outer active rest)
     | [] -> (
         (* add one new row per diagonal round. *)
-        let outer', active' =
+        let outer_done, outer', active' =
           match outer () with
-          | Seq.Nil -> (Seq.empty, active)
-          | Seq.Cons (row, outer_tail) -> (outer_tail, row :: active)
+          | Seq.Nil -> (true, Seq.empty, active)
+          | Seq.Cons (row, outer_tail) -> (false, outer_tail, row :: active)
         in
         (* take one element from each active row. *)
         let rec step_rows rows acc_values acc_active =
@@ -36,9 +36,9 @@ let diagonal rows =
         in
         let values, active'' = step_rows active' [] [] in
 
-        match (values, active'') with
-        | [], [] -> Seq.Nil
-        | [], _ -> next outer' active' [] ()
+        match (values, active'', outer_done) with
+        | [], [], true -> Seq.Nil
+        | [], _, _ -> next outer' active'' [] ()
         | _ -> next outer' active'' values ())
   in
   next rows [] []
