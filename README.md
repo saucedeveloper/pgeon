@@ -10,6 +10,8 @@ To build Pgeon, install:
 
 Opam (https://opam.ocaml.org/) is the recommended way to install OCaml and the required packages.
 ```bash
+git clone https://gite.lirmm.fr/rsidhoum/pgeon/
+cd pgeon
 opam switch create . 5.1.1
 eval $(opam env)
 opam install dune
