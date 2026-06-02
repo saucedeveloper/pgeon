@@ -177,3 +177,13 @@ let create_bind name term factory =
     let new_factory = FactoryTermSet.add created factory in
     (created, new_factory)
   )
+
+(* Factory to string *)
+let string_of_factory factory =
+  if (FactoryTermSet.cardinal factory) = 0 then
+    "{}"
+  else
+    let term_ref_list = FactoryTermSet.to_list factory in
+    let term_list = term_list_deref term_ref_list in
+    let term_string_list = List.map string_of_term term_list in
+    "{ " ^ (String.concat ", " term_string_list) ^ " }"
