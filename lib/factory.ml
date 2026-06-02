@@ -8,3 +8,65 @@ type term =
     (* meta variable, used in rule definition. Cannot appear in the tableau *)
   | App of name * term ref list
   | Bind of name * term ref
+
+(* Dereference term ref *)
+let term_deref t = !t
+
+(* List of term ref to list or term *)
+let term_list_deref l = List.map term_deref l
+
+(* Compare terms for Set implementation *)
+let rec term_ref_compare a b =
+
+  (* Compare App variants for Set implementation *)
+  let term_app_compare a_name a_terms b_name b_terms =
+    let name_comparison = compare a_name b_name in
+    if name_comparison <> 0 then
+      name_comparison
+    else
+      let arity_comparison = compare (List.length a_terms) (List.length b_terms) in
+      if arity_comparison <> 0 then
+        arity_comparison
+      else
+        let combined_terms = List.combine a_terms b_terms in
+        let term_tuple_compare tup = match tup with (a, b) -> term_ref_compare a b in
+        let term_comparisons = List.map term_tuple_compare combined_terms in
+        let non_zero_comparison c = c <> 0 in
+        let first_non_zero_comparison = List.find_opt non_zero_comparison term_comparisons in
+        Option.value first_non_zero_comparison ~default:0 in
+
+  match !a with
+  | Bvar a_bvar -> (
+    match !b with
+    | Bvar b_bvar -> compare a_bvar b_bvar
+    | _ -> 1
+  )
+  | Fvar a_fvar -> (
+    match !b with
+    | Bvar _ -> -1
+    | Fvar b_fvar -> compare a_fvar b_fvar
+    | _ -> 1
+  )
+  | Mvar a_mvar -> (
+    match !b with
+    | Bvar _ | Fvar _ -> -1
+    | Mvar b_mvar -> compare a_mvar b_mvar
+    | _ -> 1
+  )
+  | App (a_app_name, a_app_terms) -> (
+    match !b with
+    | Bvar _ | Fvar _ | Mvar _ -> -1
+    | App (b_app_name, b_app_terms) ->
+      term_app_compare a_app_name a_app_terms b_app_name b_app_terms
+    | _ -> 1
+  )
+  | Bind (a_bind_name, a_bind_term) -> (
+    match !b with
+    | Bvar _ | Fvar _ | Mvar _ | App _ -> -1
+    | Bind (b_bind_name, b_bind_term) ->
+      let name_comparison = compare a_bind_name b_bind_name in
+      if name_comparison <> 0 then
+        name_comparison
+      else
+        term_ref_compare a_bind_term b_bind_term
+  )
