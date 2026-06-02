@@ -81,3 +81,17 @@ module FactoryTermSet = Set.Make(FactoryTerm)
 
 (* Factory is a set of terms using term_ref_compare to tell them apart *)
 type t = FactoryTermSet.t
+
+(* term to string implementation from compile.ml *)
+let string_of_term t =
+  let rec string_of_term = function
+      | Bvar i -> Printf.sprintf "#%d" i
+      | Fvar x -> "'" ^ x
+      | Mvar x -> "?" ^ x
+      | App (f, []) -> f
+      | App (f, args) ->
+          Printf.sprintf "%s(%s)" f
+            (String.concat ", " (List.map string_of_term (term_list_deref args)))
+      | Bind (b, body) -> Printf.sprintf "%s.(%s)" b (string_of_term (term_deref body))
+    in
+    string_of_term t
