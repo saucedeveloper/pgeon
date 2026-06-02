@@ -70,3 +70,14 @@ let rec term_ref_compare a b =
       else
         term_ref_compare a_bind_term b_bind_term
   )
+
+(* Module for Set implementation *)
+module FactoryTerm = struct 
+  type t = term ref
+  let compare = term_ref_compare
+end
+
+module FactoryTermSet = Set.Make(FactoryTerm)
+
+(* Factory is a set of terms using term_ref_compare to tell them apart *)
+type t = FactoryTermSet.t
