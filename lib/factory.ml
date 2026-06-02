@@ -187,3 +187,36 @@ let string_of_factory factory =
     let term_list = term_list_deref term_ref_list in
     let term_string_list = List.map string_of_term term_list in
     "{ " ^ (String.concat ", " term_string_list) ^ " }"
+
+let main () =
+  (* let a_or_b = App("or", [ref (Fvar "a"); ref (Fvar "b")]) in
+  for i = 0 to (Array.length Sys.argv) - 1 do
+    Printf.printf "argv[%d] = %s\n" (i) Sys.argv.(i);
+  done;
+  Printf.printf "a_or_b: %s" (string_of_term a_or_b);; *)
+  (*
+  let arg_a = ref (Bind ("exists", p)) in
+  let arg_b = ref (Bind ("forall", e)) in
+  let comparison = term_ref_compare arg_a arg_b in
+  Printf.printf "arg_a: %s\n" (string_of_term !arg_a);
+  Printf.printf "arg_b: %s\n" (string_of_term !arg_b);
+  Printf.printf "comparison: %s\n" (string_of_int comparison);
+  *)
+
+  let factory1 = FactoryTermSet.empty in
+  let (e, factory2) = create_mvar "e" factory1 in
+  let (p, factory3) = create_mvar "p" factory2 in
+  let (p2, factory4) = create_mvar "p" factory3 in
+  let (arg_a, factory5) = create_bind "exists" p factory4 in
+  let (arg_b, factory6) = create_bind "forall" e factory5 in
+  let (arg_b, factory7) = create_bind "forall" e factory6 in
+
+  Printf.printf "factory1: %s\n" (string_of_factory factory1);
+  Printf.printf "factory2: %s\n" (string_of_factory factory2);
+  Printf.printf "factory3: %s\n" (string_of_factory factory3);
+  Printf.printf "factory4: %s\n" (string_of_factory factory4);
+  Printf.printf "factory5: %s\n" (string_of_factory factory5);
+  Printf.printf "factory6: %s\n" (string_of_factory factory6);
+  Printf.printf "factory7: %s\n" (string_of_factory factory7);;
+
+main ()
