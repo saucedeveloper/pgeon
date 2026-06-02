@@ -95,3 +95,85 @@ let string_of_term t =
       | Bind (b, body) -> Printf.sprintf "%s.(%s)" b (string_of_term (term_deref body))
     in
     string_of_term t
+
+(* Create or get Bvar in factory *)
+let create_bvar index factory =
+  let term_matches term_ref = (
+    match !term_ref with
+    | Bvar existing_index -> existing_index = index
+    | _ -> false
+  ) in
+  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
+  match existing_search with
+  | Some existing -> (existing, factory)
+  | None ->
+    let created = ref (Bvar index) in
+    let new_factory = FactoryTermSet.add created factory in
+    (created, new_factory)
+  )
+
+(* Create or get Fvar in factory *)
+let create_fvar name factory =
+  let term_matches term_ref = (
+    match !term_ref with
+    | Fvar existing_name -> existing_name = name
+    | _ -> false
+  ) in
+  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
+  match existing_search with
+  | Some existing -> (existing, factory)
+  | None ->
+    let created = ref (Fvar name) in
+    let new_factory = FactoryTermSet.add created factory in
+    (created, new_factory)
+  )
+
+(* Create or get Mvar in factory *)
+let create_mvar name factory =
+  let term_matches term_ref = (
+    match !term_ref with
+    | Mvar existing_name -> existing_name = name
+    | _ -> false
+  ) in
+  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
+  match existing_search with
+  | Some existing -> (existing, factory)
+  | None ->
+    let created = ref (Mvar name) in
+    let new_factory = FactoryTermSet.add created factory in
+    (created, new_factory)
+  )
+
+(* Create or get App in factory *)
+let create_app name terms factory =
+  let term_matches term_ref = (
+    match !term_ref with
+    | App (existing_name, existing_terms) ->
+      (existing_name, existing_terms) = (name, terms)
+    | _ -> false
+  ) in
+  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
+  match existing_search with
+  | Some existing -> (existing, factory)
+  | None ->
+    let created = ref (App (name, terms)) in
+    let new_factory = FactoryTermSet.add created factory in
+    (created, new_factory)
+  )
+
+(* Create or get Bind in factory *)
+let create_bind name term factory =
+  let term_matches term_ref = (
+    match !term_ref with
+    | Bind (existing_name, existing_term) ->
+      (existing_name, existing_term) = (name, term)
+    | _ -> false
+  ) in
+  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
+  match existing_search with
+  | Some existing -> (existing, factory)
+  | None ->
+    let created = ref (Bind (name, term)) in
+    let new_factory = FactoryTermSet.add created factory in
+    (created, new_factory)
+  )
