@@ -188,6 +188,55 @@ let string_of_factory factory =
     let term_string_list = List.map string_of_term term_list in
     "{ " ^ (String.concat ", " term_string_list) ^ " }"
 
+(* Address / unique id for x for printing *)
+let address_of (x: 'a ref) = 2 * (Obj.magic x)
+
+(* String of a term ref with strings of
+recursive elements given by `string_of_ref` *)
+let string_of_term_ref_custom tr string_of_ref =
+  let string_of tr = match !tr with
+      | Bvar i -> Printf.sprintf "#%d" i
+      | Fvar x -> "'" ^ x
+      | Mvar x -> "?" ^ x
+      | App (f, []) -> f
+      | App (f, args) ->
+          Printf.sprintf "%s(%s)" f
+            (String.concat ", " (List.map string_of_ref args))
+      | Bind (b, body) -> Printf.sprintf "%s.(%s)" b (string_of_ref body)
+    in
+    string_of tr
+
+(* String of factory where each element of depth > 0
+is written as its address in factory *)
+let debug_string_of_factory factory =
+  if (FactoryTermSet.cardinal factory) = 0 then
+    "{}"
+  else
+    let string_address_of x =
+      let s = string_of_int (address_of x) in
+      let i = 4 in
+      String.sub s (String.length s - i) i
+    in
+    let rec recursive depth term_ref =
+      if depth = 0 then
+        let compact_string =
+          string_of_term_ref_custom term_ref (recursive (depth + 1))
+        in
+        compact_string ^ "(@" ^ (string_address_of term_ref) ^ ")"
+      else
+        let string_of_term_ref =
+          if (FactoryTermSet.mem term_ref factory) then
+            "[@" ^ (string_address_of term_ref) ^ "]"
+          else
+            "[?]"
+        in
+          string_of_term_ref
+      in
+
+    let term_ref_list = FactoryTermSet.to_list factory in
+    let term_string_list = List.map (recursive 0) term_ref_list in
+    "{ " ^ (String.concat ", " term_string_list) ^ " }"
+
 let main () =
   (* let a_or_b = App("or", [ref (Fvar "a"); ref (Fvar "b")]) in
   for i = 0 to (Array.length Sys.argv) - 1 do
@@ -211,12 +260,19 @@ let main () =
   let (arg_b, factory6) = create_bind "forall" e factory5 in
   let (arg_b, factory7) = create_bind "forall" e factory6 in
 
-  Printf.printf "factory1: %s\n" (string_of_factory factory1);
-  Printf.printf "factory2: %s\n" (string_of_factory factory2);
-  Printf.printf "factory3: %s\n" (string_of_factory factory3);
-  Printf.printf "factory4: %s\n" (string_of_factory factory4);
-  Printf.printf "factory5: %s\n" (string_of_factory factory5);
-  Printf.printf "factory6: %s\n" (string_of_factory factory6);
-  Printf.printf "factory7: %s\n" (string_of_factory factory7);;
+  Printf.printf "factory1 (full): %s\n" (string_of_factory factory1);
+  Printf.printf "factory1 (debg): %s\n\n" (debug_string_of_factory factory1);
+  Printf.printf "factory2 (full): %s\n" (string_of_factory factory2);
+  Printf.printf "factory2 (debg): %s\n\n" (debug_string_of_factory factory2);
+  Printf.printf "factory3 (full): %s\n" (string_of_factory factory3);
+  Printf.printf "factory3 (debg): %s\n\n" (debug_string_of_factory factory3);
+  Printf.printf "factory4 (full): %s\n" (string_of_factory factory4);
+  Printf.printf "factory4 (debg): %s\n\n" (debug_string_of_factory factory4);
+  Printf.printf "factory5 (full): %s\n" (string_of_factory factory5);
+  Printf.printf "factory5 (debg): %s\n\n" (debug_string_of_factory factory5);
+  Printf.printf "factory6 (full): %s\n" (string_of_factory factory6);
+  Printf.printf "factory6 (debg): %s\n\n" (debug_string_of_factory factory6);
+  Printf.printf "factory7 (full): %s\n" (string_of_factory factory7);
+  Printf.printf "factory7 (debg): %s\n\n" (debug_string_of_factory factory7);;
 
 main ()
