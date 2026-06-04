@@ -20,7 +20,7 @@ type strategy = proof_state -> proof_state Seq.t
 type rule = {
   id : int;
   run : proof_state -> proof_state Seq.t;
-  run_bang : (proof_state -> proof_state option) option;
+  run_bang : strategy option;
 }
 
 let fair_flat_map f xs = xs |> Seq.map f |> Utils.diagonal
@@ -45,8 +45,7 @@ let applyRuleBang r =
  fun st ->
   match r.run_bang with
   | None -> failwith "Rule does not support bang application"
-  | Some f -> (
-      match f st with None -> Seq.empty | Some st' -> Seq.return st')
+  | Some f -> f st
 
 (* main engine *)
 let prove st s = Seq.exists (fun st -> is_closed st.tree) (s st)

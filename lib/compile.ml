@@ -259,6 +259,17 @@ let cache_check _ _ = false
 let cache_insert cache key =
   if cache_check cache key then cache else key :: cache
 
+let singleton_or_empty = function None -> Seq.empty | Some st -> Seq.return st
+
+let rec invertible_bang run_once matched st =
+  let nexts = run_once st in
+  match nexts () with
+  | Seq.Nil -> if matched then Seq.return st else Seq.empty
+  | Seq.Cons (st', rest) ->
+      Seq.cons st' rest
+      |> Seq.map (invertible_bang run_once true)
+      |> Utils.diagonal
+
 let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
   let build_branches start_id base_branch rhs_branches =
     match rhs_branches with
@@ -403,7 +414,21 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                        Some { st with tree = branches @ rest_tree }));
         run_bang =
           (match arrow with
-          | Ast.Invertible -> None
+          | Ast.Invertible ->
+              Some
+                (fun st ->
+                  invertible_bang
+                    (fun st ->
+                      generate_candidates_branch_rules st.tree arity
+                      |> Seq.filter_map
+                           (fun (rest_tree, _branch, rest_branch, candidate) ->
+                             match
+                               apply_branch_candidate st rest_branch candidate
+                             with
+                             | None -> None
+                             | Some (st, branches) ->
+                                 Some { st with tree = branches @ rest_tree }))
+                    false st)
           | Ast.Close ->
               Some
                 (fun st ->
@@ -424,7 +449,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                     | None -> if matched then Some st else None
                     | Some st -> loop true st
                   in
-                  loop false st)
+                  singleton_or_empty (loop false st))
           | Ast.NonInvertible ->
               Some
                 (fun st ->
@@ -459,7 +484,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                           (List.rev_append branches acc)
                           tl
                   in
-                  process_branches st false [] st.tree));
+                  singleton_or_empty (process_branches st false [] st.tree)));
       }
   | Ast.RuleTree { arrow; lhs = lhs_branches, lhs_tree_tail; rhs; where; name }
     ->
@@ -522,7 +547,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
         run = run_tree;
         run_bang =
           (match arrow with
-          | Ast.Invertible -> None
+          | Ast.Invertible -> Some (fun st -> invertible_bang run_tree false st)
           | Ast.Close | Ast.NonInvertible ->
               Some
                 (fun st ->
@@ -531,7 +556,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                     | None -> if matched then Some st else None
                     | Some (st, _) -> loop true st
                   in
-                  loop false st));
+                  singleton_or_empty (loop false st)));
       }
 
 (* Strategy compilation and initial proof state *)

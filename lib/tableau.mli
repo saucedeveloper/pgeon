@@ -20,9 +20,9 @@ type strategy = proof_state -> proof_state Seq.t
 type rule = {
   id : int;
   run : proof_state -> proof_state Seq.t;
-  (* Deterministic eager application. [None] means the rule cannot be used with
-     the strategy postfix [!]. *)
-  run_bang : (proof_state -> proof_state option) option;
+  (* Eager application used by the strategy postfix [!]. [None] means the rule
+     cannot be used with bang. *)
+  run_bang : strategy option;
 }
 
 val skip : strategy
