@@ -15,72 +15,86 @@ let term_deref t = !t
 (* List of term ref to list or term *)
 let term_list_deref l = List.map term_deref l
 
-(* Compare terms for Set implementation *)
-let rec term_ref_compare a b =
+let term_bvar_compare a_index b_index = compare a_index b_index
 
-  (* Compare App variants for Set implementation *)
-  let term_app_compare a_name a_terms b_name b_terms =
-    let name_comparison = compare a_name b_name in
-    if name_comparison <> 0 then
-      name_comparison
+let term_fvar_compare a_name b_name = compare a_name b_name
+
+let term_mvar_compare a_name b_name = compare a_name b_name
+
+(* Compare App variants for Set implementation *)
+let rec term_app_compare a_name a_terms b_name b_terms =
+  let name_comparison = compare a_name b_name in
+  if name_comparison <> 0 then
+    name_comparison
+  else
+    let arity_comparison = compare (List.length a_terms) (List.length b_terms) in
+    if arity_comparison <> 0 then
+      arity_comparison
     else
-      let arity_comparison = compare (List.length a_terms) (List.length b_terms) in
-      if arity_comparison <> 0 then
-        arity_comparison
-      else
-        let combined_terms = List.combine a_terms b_terms in
-        let term_tuple_compare tup = match tup with (a, b) -> term_ref_compare a b in
-        let term_comparisons = List.map term_tuple_compare combined_terms in
-        let non_zero_comparison c = c <> 0 in
-        let first_non_zero_comparison = List.find_opt non_zero_comparison term_comparisons in
-        Option.value first_non_zero_comparison ~default:0 in
+      let combined_terms = List.combine a_terms b_terms in
+      let term_tuple_compare tup = match tup with (a, b) -> term_ref_compare a b in
+      let term_comparisons = List.map term_tuple_compare combined_terms in
+      let non_zero_comparison c = c <> 0 in
+      let first_non_zero_comparison = List.find_opt non_zero_comparison term_comparisons in
+      Option.value first_non_zero_comparison ~default:0
 
-  match !a with
-  | Bvar a_bvar -> (
-    match !b with
-    | Bvar b_bvar -> compare a_bvar b_bvar
-    | _ -> 1
-  )
-  | Fvar a_fvar -> (
-    match !b with
-    | Bvar _ -> -1
-    | Fvar b_fvar -> compare a_fvar b_fvar
-    | _ -> 1
-  )
-  | Mvar a_mvar -> (
-    match !b with
-    | Bvar _ | Fvar _ -> -1
-    | Mvar b_mvar -> compare a_mvar b_mvar
-    | _ -> 1
-  )
-  | App (a_app_name, a_app_terms) -> (
-    match !b with
-    | Bvar _ | Fvar _ | Mvar _ -> -1
-    | App (b_app_name, b_app_terms) ->
-      term_app_compare a_app_name a_app_terms b_app_name b_app_terms
-    | _ -> 1
-  )
-  | Bind (a_bind_name, a_bind_term) -> (
-    match !b with
-    | Bvar _ | Fvar _ | Mvar _ | App _ -> -1
-    | Bind (b_bind_name, b_bind_term) ->
-      let name_comparison = compare a_bind_name b_bind_name in
+(* Compare Bind variants for Set implementation *)
+and term_bind_compare a_name a_term b_name b_term =
+  let name_comparison = compare a_name b_name in
       if name_comparison <> 0 then
         name_comparison
       else
-        term_ref_compare a_bind_term b_bind_term
-  )
+        term_ref_compare a_term b_term
+
+(* Compare terms for Set implementation *)
+and term_ref_compare a b =
+  if a = b then
+    0
+  else
+    term_compare !a !b
+
+(* Compare terms by variant index then by contents recursively *)
+and term_compare a b =
+  match (a, b) with
+  | (Bvar a_bvar, Bvar b_bvar) -> term_bvar_compare a_bvar b_bvar
+  | (Bvar _, _) -> -1
+  | (_, Bvar _) -> 1
+  | (Fvar a_fvar, Fvar b_fvar) -> term_fvar_compare a_fvar b_fvar
+  | (Fvar _, _) -> -1
+  | (_, Fvar _) -> 1
+  | (Mvar a_mvar, Mvar b_mvar) -> term_mvar_compare a_mvar b_mvar
+  | (Mvar _, _) -> -1
+  | (_, Mvar _) -> 1
+  | (App (a_app_name, a_app_terms), App (b_app_name, b_app_terms)) ->
+      term_app_compare a_app_name a_app_terms b_app_name b_app_terms
+  | (App _, _) -> -1
+  | (_, App _) -> 1
+  | (Bind (a_bind_name, a_bind_term), Bind (b_bind_name, b_bind_term)) ->
+      term_bind_compare a_bind_name a_bind_term b_bind_name b_bind_term
 
 (* Module for Set implementation *)
-module FactoryTerm = struct 
-  type t = term ref
-  let compare = term_ref_compare
+module FactoryTerm = struct
+  type t = term
+  let compare = term_compare
 end
 
 module FactoryTermSet = Set.Make(FactoryTerm)
 
-(* Factory is a set of terms using term_ref_compare to tell them apart *)
-type t = FactoryTermSet.t
+(* Factory is a set of terms using term_compare to tell them apart *)
+type t = {
+  set : FactoryTermSet.t;
+  reuse_bvar : bool;
+  reuse_fvar : bool;
+  reuse_mvar : bool;
+}
+
+(* Empty factory *)
+let empty ~reuse_bvar ~reuse_fvar ~reuse_mvar = {
+  set = FactoryTermSet.empty;
+  reuse_bvar = reuse_bvar;
+  reuse_fvar = reuse_fvar;
+  reuse_mvar = reuse_mvar
+}
 
 (* term to string implementation from compile.ml *)
 let string_of_term t =
@@ -96,145 +110,141 @@ let string_of_term t =
     in
     string_of_term t
 
+(* Address / unique id for x for printing *)
+let address_of x = 2 * (Obj.magic x) / 2
+
+let string_address_of x =
+  let s = string_of_int (address_of x) in
+  let i = 4 in
+  String.sub s (String.length s - i) i
+
 (* Create or get Bvar in factory *)
 let create_bvar index factory =
-  let term_matches term_ref = (
-    match !term_ref with
-    | Bvar existing_index -> existing_index = index
-    | _ -> false
-  ) in
-  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
-  match existing_search with
-  | Some existing -> (existing, factory)
-  | None ->
-    let created = ref (Bvar index) in
-    let new_factory = FactoryTermSet.add created factory in
-    (created, new_factory)
-  )
+  if factory.reuse_bvar then
+    let target = Bvar index in
+    let existing_search = FactoryTermSet.find_opt target factory.set in (
+    match existing_search with
+    | Some existing ->
+      Printf.printf "create_bvar(%d).existing: targ %s, exst %s\n" index (string_address_of target) (string_address_of existing);
+      (ref existing, factory)
+    | None ->
+      Printf.printf "create_bvar(%d).created: targ %s\n" index (string_address_of target);
+      let new_factory = { factory with set = (FactoryTermSet.add target factory.set) } in
+      (ref target, new_factory)
+    )
+  else
+    (ref (Bvar index), factory)
 
 (* Create or get Fvar in factory *)
 let create_fvar name factory =
-  let term_matches term_ref = (
-    match !term_ref with
-    | Fvar existing_name -> existing_name = name
-    | _ -> false
-  ) in
-  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
-  match existing_search with
-  | Some existing -> (existing, factory)
-  | None ->
-    let created = ref (Fvar name) in
-    let new_factory = FactoryTermSet.add created factory in
-    (created, new_factory)
-  )
+  if factory.reuse_fvar then
+    let target = Fvar name in
+    let existing_search = FactoryTermSet.find_opt target factory.set in (
+    match existing_search with
+    | Some existing ->
+      Printf.printf "create_fvar(%s).existing: targ %s, exst %s\n" name (string_address_of target) (string_address_of existing);
+      (ref existing, factory)
+    | None ->
+      Printf.printf "create_fvar(%s).created: targ %s\n" name (string_address_of target);
+      let new_factory = { factory with set = (FactoryTermSet.add target factory.set) } in
+      (ref target, new_factory)
+    )
+  else
+    (ref (Fvar name), factory)
 
 (* Create or get Mvar in factory *)
 let create_mvar name factory =
-  let term_matches term_ref = (
-    match !term_ref with
-    | Mvar existing_name -> existing_name = name
-    | _ -> false
-  ) in
-  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
-  match existing_search with
-  | Some existing -> (existing, factory)
-  | None ->
-    let created = ref (Mvar name) in
-    let new_factory = FactoryTermSet.add created factory in
-    (created, new_factory)
-  )
+  if factory.reuse_mvar then
+    let target = Mvar name in
+    let existing_search = FactoryTermSet.find_opt target factory.set in (
+    match existing_search with
+    | Some existing ->
+      Printf.printf "create_mvar(%s).existing: targ %s, exst %s\n" name (string_address_of target) (string_address_of existing);
+      (ref existing, factory)
+    | None ->
+      Printf.printf "create_mvar(%s).created: targ %s\n" name (string_address_of target);
+      let new_factory = { factory with set = (FactoryTermSet.add target factory.set) } in
+      (ref target, new_factory)
+    )
+  else
+    (ref (Mvar name), factory)
 
 (* Create or get App in factory *)
 let create_app name terms factory =
-  let term_matches term_ref = (
-    match !term_ref with
-    | App (existing_name, existing_terms) ->
-      (existing_name, existing_terms) = (name, terms)
-    | _ -> false
-  ) in
-  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
+  let target = App (name, terms) in
+  let existing_search = FactoryTermSet.find_opt target factory.set in (
   match existing_search with
-  | Some existing -> (existing, factory)
+  | Some existing ->
+    Printf.printf "create_app(%s, [%d]).existing: targ %s, exst %s\n" name (List.length terms) (string_address_of target) (string_address_of existing);
+    (ref existing, factory)
   | None ->
-    let created = ref (App (name, terms)) in
-    let new_factory = FactoryTermSet.add created factory in
-    (created, new_factory)
+    let new_factory = { factory with set = (FactoryTermSet.add target factory.set) } in
+    Printf.printf "create_app(%s, [%d]).created: targ %s\n" name (List.length terms) (string_address_of target);
+    (ref target, new_factory)
   )
 
 (* Create or get Bind in factory *)
 let create_bind name term factory =
-  let term_matches term_ref = (
-    match !term_ref with
-    | Bind (existing_name, existing_term) ->
-      (existing_name, existing_term) = (name, term)
-    | _ -> false
-  ) in
-  let existing_search = FactoryTermSet.find_first_opt term_matches factory in (
-  match existing_search with
-  | Some existing -> (existing, factory)
-  | None ->
-    let created = ref (Bind (name, term)) in
-    let new_factory = FactoryTermSet.add created factory in
-    (created, new_factory)
+  let target = Bind (name, term) in
+  let existing_search = FactoryTermSet.find_opt target factory.set in (
+    match existing_search with
+    | Some existing ->
+      Printf.printf "create_bind(%s, _).existing: targ %s, exst %s\n" name (string_address_of target) (string_address_of existing);
+      (ref existing, factory)
+    | None ->
+      let new_factory = { factory with set = (FactoryTermSet.add target factory.set) } in
+      Printf.printf "create_bind(%s, _).created: targ %s\n" name (string_address_of target);
+      (ref target, new_factory)
   )
 
 (* Factory to string *)
 let string_of_factory factory =
-  if (FactoryTermSet.cardinal factory) = 0 then
+  if (FactoryTermSet.cardinal factory.set) = 0 then
     "{}"
   else
-    let term_ref_list = FactoryTermSet.to_list factory in
-    let term_list = term_list_deref term_ref_list in
+    let term_list = FactoryTermSet.to_list factory.set in
     let term_string_list = List.map string_of_term term_list in
     "{ " ^ (String.concat ", " term_string_list) ^ " }"
 
-(* Address / unique id for x for printing *)
-let address_of (x: 'a ref) = 2 * (Obj.magic x)
-
 (* String of a term ref with strings of
-recursive elements given by `string_of_ref` *)
-let string_of_term_ref_custom tr string_of_ref =
-  let string_of tr = match !tr with
+recursive elements given by `custom_string_of` *)
+let string_of_term_custom term custom_string_of =
+  let string_of term = match term with
       | Bvar i -> Printf.sprintf "#%d" i
       | Fvar x -> "'" ^ x
       | Mvar x -> "?" ^ x
       | App (f, []) -> f
       | App (f, args) ->
           Printf.sprintf "%s(%s)" f
-            (String.concat ", " (List.map string_of_ref args))
-      | Bind (b, body) -> Printf.sprintf "%s.(%s)" b (string_of_ref body)
+            (String.concat ", " (List.map custom_string_of (term_list_deref args)))
+      | Bind (b, body) -> Printf.sprintf "%s.(%s)" b (custom_string_of (term_deref body))
     in
-    string_of tr
+    string_of term
 
 (* String of factory where each element of depth > 0
 is written as its address in factory *)
 let debug_string_of_factory factory =
-  if (FactoryTermSet.cardinal factory) = 0 then
+  if (FactoryTermSet.cardinal factory.set) = 0 then
     "{}"
   else
-    let string_address_of x =
-      let s = string_of_int (address_of x) in
-      let i = 4 in
-      String.sub s (String.length s - i) i
-    in
-    let rec recursive depth term_ref =
+    let rec recursive depth term =
       if depth = 0 then
         let compact_string =
-          string_of_term_ref_custom term_ref (recursive (depth + 1))
+          string_of_term_custom term (recursive (depth + 1))
         in
-        compact_string ^ "(@" ^ (string_address_of term_ref) ^ ")"
+        compact_string ^ "(@" ^ (string_address_of term) ^ ")"
       else
         let string_of_term_ref =
-          if (FactoryTermSet.mem term_ref factory) then
-            "[@" ^ (string_address_of term_ref) ^ "]"
+          if (FactoryTermSet.mem term factory.set) then
+            "{@" ^ (string_address_of term) ^ "}"
           else
-            "[?]"
+            "{@?" ^ (string_address_of term) ^ "}"
         in
           string_of_term_ref
       in
 
-    let term_ref_list = FactoryTermSet.to_list factory in
-    let term_string_list = List.map (recursive 0) term_ref_list in
+    let term_list = FactoryTermSet.to_list factory.set in
+    let term_string_list = List.map (recursive 0) term_list in
     "{ " ^ (String.concat ", " term_string_list) ^ " }"
 
 let main () =
@@ -252,13 +262,19 @@ let main () =
   Printf.printf "comparison: %s\n" (string_of_int comparison);
   *)
 
-  let factory1 = FactoryTermSet.empty in
+  let factory1 = empty ~reuse_bvar:true ~reuse_fvar:true ~reuse_mvar:false in
   let (e, factory2) = create_mvar "e" factory1 in
   let (p, factory3) = create_mvar "p" factory2 in
   let (p2, factory4) = create_mvar "p" factory3 in
   let (arg_a, factory5) = create_bind "exists" p factory4 in
   let (arg_b, factory6) = create_bind "forall" e factory5 in
-  let (arg_b, factory7) = create_bind "forall" e factory6 in
+  Printf.printf "arg_b: %s\n" (string_address_of !arg_b);
+
+  let (arg_b2, factory7) = create_bind "forall" e factory6 in
+  Printf.printf "arg_b2: %s\n" (string_address_of !arg_b2);
+  Printf.printf "arg_b: %s\n" (string_address_of !arg_b);
+
+  let (comp, factory8) = create_app "f" [arg_a; arg_b2; arg_b] factory7 in
 
   Printf.printf "factory1 (full): %s\n" (string_of_factory factory1);
   Printf.printf "factory1 (debg): %s\n\n" (debug_string_of_factory factory1);
@@ -273,6 +289,9 @@ let main () =
   Printf.printf "factory6 (full): %s\n" (string_of_factory factory6);
   Printf.printf "factory6 (debg): %s\n\n" (debug_string_of_factory factory6);
   Printf.printf "factory7 (full): %s\n" (string_of_factory factory7);
-  Printf.printf "factory7 (debg): %s\n\n" (debug_string_of_factory factory7);;
+  Printf.printf "factory7 (debg): %s\n\n" (debug_string_of_factory factory7);
+  Printf.printf "factory8 (full): %s\n" (string_of_factory factory8);
+  Printf.printf "factory8 (debg): %s\n\n" (debug_string_of_factory factory8);
+  ;;
 
 main ()
