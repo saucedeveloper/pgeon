@@ -12,8 +12,9 @@ type branch_tail =
   | TailAny of string (* ...B *)
   | TailMapped of string * string (* f(...B), constructor + tail variable *)
 
-(* (P0 ; P1 ; ...B) is a branch expr, where P0; P1 are expressions and B is the rest of the branch. *)
-type branch_expr = expr list * branch_tail option
+(* (P0 ; P1 ; ...B ; ...C) is a branch expr, where P0; P1 are
+   expressions and B/C partition the rest of the branch. *)
+type branch_expr = expr list * branch_tail list
 
 (* if ...B is a branch_expr, then ...B | ...T is a tree rule, where ...B is the branch and ...T is the rest of the tree. *)
 type tree_expr = branch_expr list * string
@@ -23,10 +24,14 @@ type where_op =
   | WhereSubstGen of { bound : string; by : gen_call }
   | WhereUnifier of { name : string; left : expr; right : expr }
 
+type where_pattern =
+  | WherePatternExpr of expr
+  | WherePatternNot of where_pattern
+
 type where_clause =
   | WhereExprClause of { dst : string; src : expr; op : where_op }
   | WhereTreeClause of { dst : string; src : tree_expr; op : where_op }
-  | WhereBranchAllMatch of { branch : string; pattern : expr }
+  | WhereBranchAllMatch of { branch : string; pattern : where_pattern }
 
 type rule_decl =
   | RuleBranch of {

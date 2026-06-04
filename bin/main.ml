@@ -17,18 +17,11 @@ let print_logic (ast : Ast.logic_decl) =
         Printf.sprintf "%s %s. %s" binder var (print_expr body)
   in
   let print_branch_tail = function
-    | None -> None
-    | Some (Ast.TailAny tail) -> Some (Printf.sprintf "...%s" tail)
-    | Some (Ast.TailMapped (f, tail)) ->
-        Some (Printf.sprintf "%s(...%s)" f tail)
+    | Ast.TailAny tail -> Printf.sprintf "...%s" tail
+    | Ast.TailMapped (f, tail) -> Printf.sprintf "%s(...%s)" f tail
   in
-  let print_branch_expr (exprs, tail) =
-    let parts = List.map print_expr exprs in
-    let parts =
-      match print_branch_tail tail with
-      | None -> parts
-      | Some tail -> parts @ [ tail ]
-    in
+  let print_branch_expr (exprs, tails) =
+    let parts = List.map print_expr exprs @ List.map print_branch_tail tails in
     Printf.sprintf "(%s)" (String.concat "; " parts)
   in
   let print_tree_expr = function
@@ -36,6 +29,11 @@ let print_logic (ast : Ast.logic_decl) =
     | branches, rest ->
         String.concat " | " (List.map print_branch_expr branches)
         ^ Printf.sprintf " | ...%s" rest
+  in
+  let rec print_where_pattern = function
+    | Ast.WherePatternExpr expr -> print_expr expr
+    | Ast.WherePatternNot pattern ->
+        Printf.sprintf "~ %s" (print_where_pattern pattern)
   in
   let print_where_clause (w : Ast.where_clause) =
     match w with
@@ -60,7 +58,7 @@ let print_logic (ast : Ast.logic_decl) =
         in
         Printf.sprintf "(...%s = %s[%s])" dst (print_tree_expr src) op_str
     | Ast.WhereBranchAllMatch { branch; pattern } ->
-        Printf.sprintf "(...%s : %s)" branch (print_expr pattern)
+        Printf.sprintf "(...%s : %s)" branch (print_where_pattern pattern)
   in
   let print_rule_decl (r : Ast.rule_decl) =
     match r with

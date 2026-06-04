@@ -68,8 +68,7 @@ type branch_env = (string * Tableau.formula list) list
 type tree_env = (string * Tableau.proof_tree) list
 
 let branch_tail_name = function
-  | None -> None
-  | Some (Ast.TailAny name) | Some (Ast.TailMapped (_, name)) -> Some name
+  | Ast.TailAny name | Ast.TailMapped (_, name) -> name
 
 let instantiate_rule_expr lhs_subst (env : rule_env) (expr : Ast.expr) =
   let rec go : Ast.expr -> Term.t = function
@@ -133,11 +132,16 @@ let add_terms_to_branch start_id terms branch =
   aux start_id [] terms
 
 let instantiate_branch_expr subst env branch_env next_formula_id
-    ((exprs, tail) : Ast.branch_expr) =
+    ((exprs, tails) : Ast.branch_expr) =
   let base_branch =
-    match branch_tail_name tail with
-    | None -> Some []
-    | Some tail_var -> List.assoc_opt tail_var branch_env
+    let rec collect acc = function
+      | [] -> Some (List.concat (List.rev acc))
+      | tail :: tl -> (
+          match List.assoc_opt (branch_tail_name tail) branch_env with
+          | None -> None
+          | Some branch -> collect (branch :: acc) tl)
+    in
+    collect [] tails
   in
   match base_branch with
   | None -> None
@@ -173,6 +177,14 @@ let pattern_matches pattern term =
         | _ -> None)
   in
   Option.is_some (go [] pattern term)
+
+let rec where_pattern_matches lhs_subst env pattern term =
+  match pattern with
+  | Ast.WherePatternExpr expr ->
+      let pattern = instantiate_rule_expr lhs_subst env expr in
+      pattern_matches pattern term
+  | Ast.WherePatternNot pattern ->
+      not (where_pattern_matches lhs_subst env pattern term)
 
 let instantiate_tree_expr subst env branch_env tree_env next_formula_id
     ((branches, tree_tail) : Ast.tree_expr) =
@@ -225,10 +237,10 @@ let eval_where_expr_clause runtime st lhs_subst (env : rule_env)
       match List.assoc_opt branch branch_env with
       | None -> None
       | Some formulas ->
-          let pattern = instantiate_rule_expr lhs_subst env pattern in
           if
             List.for_all
-              (fun (_, term) -> pattern_matches pattern term)
+              (fun (_, term) ->
+                where_pattern_matches lhs_subst env pattern term)
               formulas
           then Some (st, env, branch_env, tree_env)
           else None)
@@ -337,6 +349,54 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
         in
         choose_formulas [] (selected_branches, lhs_branches)
         |> Seq.map (fun matched_branches -> (rest_tree, matched_branches)))
+  in
+  let tail_accepts tail formulas =
+    match tail with
+    | Ast.TailAny _ -> true
+    | Ast.TailMapped (f, _) ->
+        List.for_all
+          (function _, Term.App (g, [ _ ]) -> f = g | _ -> false)
+          formulas
+  in
+  let partition_branch_remainder tails formulas =
+    let tail_count = List.length tails in
+    let empty_groups = List.init tail_count (fun _ -> []) in
+    let add_to_group idx formula groups =
+      groups
+      |> List.mapi (fun i group -> if i = idx then formula :: group else group)
+    in
+    match tails with
+    | [] -> if formulas = [] then Seq.return [] else Seq.empty
+    | [ tail ] ->
+        if tail_accepts tail formulas then
+          Seq.return [ (branch_tail_name tail, formulas) ]
+        else Seq.empty
+    | _ ->
+        let rec assign_all groups = function
+          | [] ->
+              let groups = List.map List.rev groups in
+              if List.for_all2 tail_accepts tails groups then
+                Seq.return
+                  (List.map2
+                     (fun tail formulas -> (branch_tail_name tail, formulas))
+                     tails groups)
+              else Seq.empty
+          | formula :: tl ->
+              List.init tail_count Fun.id
+              |> List.to_seq
+              |> Seq.flat_map (fun idx ->
+                  assign_all (add_to_group idx formula groups) tl)
+        in
+        assign_all empty_groups formulas
+  in
+  let branch_env_choices matched_branches =
+    let rec loop acc = function
+      | [] -> Seq.return (List.concat (List.rev acc))
+      | ((_, tails), rest_branch, _) :: tl ->
+          partition_branch_remainder tails rest_branch
+          |> Seq.flat_map (fun env -> loop (env :: acc) tl)
+    in
+    loop [] matched_branches
   in
   match decl with
   | Ast.RuleBranch { arrow; lhs; rhs; where; name } ->
@@ -490,7 +550,7 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
     ->
       let run_tree st =
         generate_candidates_tree_rules st.tree lhs_branches
-        |> Seq.filter_map (fun (rest_tree, matched_branches) ->
+        |> Seq.flat_map (fun (rest_tree, matched_branches) ->
             let candidate_terms =
               matched_branches
               |> List.concat_map (fun (_, _, candidate) ->
@@ -502,45 +562,25 @@ let compile_rule (reg : Registry.t) id (decl : Ast.rule_decl) : Tableau.rule =
                   List.map term_of_expr exprs)
             in
             match Term.match_terms candidate_terms lhs_terms with
-            | None -> None
-            | Some subst -> (
-                let branch_env =
-                  matched_branches
-                  |> List.filter_map
-                       (fun ((_, tail), rest_branch, _candidate) ->
-                         match tail with
-                         | None -> if rest_branch = [] then Some [] else None
-                         | Some (Ast.TailAny tail_var) ->
-                             Some [ (tail_var, rest_branch) ]
-                         | Some (Ast.TailMapped (f, tail_var)) ->
-                             if
-                               List.for_all
-                                 (function
-                                   | _, Term.App (g, [ _ ]) -> f = g
-                                   | _ -> false)
-                                 rest_branch
-                             then Some [ (tail_var, rest_branch) ]
-                             else None)
-                in
-                if List.length branch_env <> List.length matched_branches then
-                  None
-                else
-                  let branch_env = List.concat branch_env in
-                  let tree_env = [ (lhs_tree_tail, rest_tree) ] in
-                  match
-                    eval_where_clauses reg st subst branch_env tree_env where
-                  with
-                  | None -> None
-                  | Some (st, env, branch_env, tree_env) -> (
-                      match
-                        instantiate_tree_expr subst env branch_env tree_env
-                          st.next_formula_id rhs
-                      with
-                      | None -> None
-                      | Some (tree, next_formula_id) ->
-                          Log.debug "TREE RULE %s succeeded\nnew_tree=\n%s\n"
-                            name (string_of_tree tree);
-                          Some { st with tree; next_formula_id })))
+            | None -> Seq.empty
+            | Some subst ->
+                branch_env_choices matched_branches
+                |> Seq.filter_map (fun branch_env ->
+                    let tree_env = [ (lhs_tree_tail, rest_tree) ] in
+                    match
+                      eval_where_clauses reg st subst branch_env tree_env where
+                    with
+                    | None -> None
+                    | Some (st, env, branch_env, tree_env) -> (
+                        match
+                          instantiate_tree_expr subst env branch_env tree_env
+                            st.next_formula_id rhs
+                        with
+                        | None -> None
+                        | Some (tree, next_formula_id) ->
+                            Log.debug "TREE RULE %s succeeded\nnew_tree=\n%s\n"
+                              name (string_of_tree tree);
+                            Some { st with tree; next_formula_id })))
       in
       {
         id;

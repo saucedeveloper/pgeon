@@ -29,6 +29,7 @@ type token_kind =
   | DOT
   | EQ
   | AT
+  | TILDE
   | ELLIPSIS
   | ARROW_CLOSE (* ==X *)
   | ARROW_INV (* ==> *)
@@ -68,6 +69,7 @@ let string_of_token_kind = function
   | DOT -> "."
   | EQ -> "="
   | AT -> "@"
+  | TILDE -> "~"
   | ELLIPSIS -> "..."
   | ARROW_CLOSE -> "==X"
   | ARROW_INV -> "==>"
@@ -154,6 +156,7 @@ let lex_string (input : string) : token list =
           loop (i + 2) line (col + 2)
             ({ kind = ARROW_REWRITE; line; col } :: acc)
       | '@' -> loop (i + 1) line (col + 1) ({ kind = AT; line; col } :: acc)
+      | '~' -> loop (i + 1) line (col + 1) ({ kind = TILDE; line; col } :: acc)
       | '*' -> loop (i + 1) line (col + 1) ({ kind = STAR; line; col } :: acc)
       | '!' -> loop (i + 1) line (col + 1) ({ kind = BANG; line; col } :: acc)
       | '?' -> loop (i + 1) line (col + 1) ({ kind = QMARK; line; col } :: acc)
@@ -286,25 +289,6 @@ let token_starts_branch_tail p =
   | IDENT _ when peek_n_kind p 1 = LPAREN && peek_n_kind p 2 = ELLIPSIS -> true
   | _ -> false
 
-let parse_expr_list_until_branch_end p =
-  let first = parse_expr p in
-  let rec loop acc =
-    match current_kind p with
-    | SEMI
-      when peek_n_kind p 1 = ELLIPSIS
-           ||
-           match peek_n_kind p 1 with
-           | IDENT _ -> peek_n_kind p 2 = LPAREN && peek_n_kind p 3 = ELLIPSIS
-           | _ -> false ->
-        List.rev acc
-    | SEMI when token_starts_expr (peek_n_kind p 1) ->
-        ignore (advance p);
-        let e = parse_expr p in
-        loop (e :: acc)
-    | _ -> List.rev acc
-  in
-  loop [ first ]
-
 let parse_branch_tail p =
   match current_kind p with
   | ELLIPSIS ->
@@ -324,25 +308,40 @@ let parse_branch_tail p =
 
 let parse_branch_expr p =
   expect_kind p LPAREN;
-  let exprs, tail =
+  let rec loop exprs tails =
     match current_kind p with
-    | _ when token_starts_branch_tail p -> ([], Some (parse_branch_tail p))
-    | RPAREN -> ([], None)
+    | RPAREN ->
+        ignore (advance p);
+        (List.rev exprs, List.rev tails)
     | _ ->
-        let exprs = parse_expr_list_until_branch_end p in
-        let tail =
-          if current_kind p = SEMI then (
-            ignore (advance p);
-            Some (parse_branch_tail p))
-          else None
+        let exprs, tails =
+          if token_starts_branch_tail p then
+            let tail = parse_branch_tail p in
+            (exprs, tail :: tails)
+          else if tails = [] && token_starts_expr (current_kind p) then
+            let expr = parse_expr p in
+            (expr :: exprs, tails)
+          else
+            error_at (current p)
+              "expected expression or branch tail in branch expression"
         in
-        (exprs, tail)
+        begin match current_kind p with
+        | SEMI ->
+            ignore (advance p);
+            loop exprs tails
+        | RPAREN ->
+            ignore (advance p);
+            (List.rev exprs, List.rev tails)
+        | tok ->
+            error_at (current p) "expected ';' or ')', got %s"
+              (string_of_token_kind tok)
+        end
   in
-  expect_kind p RPAREN;
-  (exprs, tail)
+  loop [] []
 
 let rec parse_tree_expr p =
   match current_kind p with
+  | ELLIPSIS when peek_n_kind p 2 = BAR -> parse_tree_expr_body p
   | ELLIPSIS ->
       ignore (advance p);
       let rest = expect_ident p in
@@ -364,14 +363,30 @@ let rec parse_tree_expr p =
         (string_of_token_kind tok)
 
 and parse_tree_expr_body p =
-  let first_branch = parse_branch_expr p in
+  let parse_bare_branch_tail p =
+    expect_kind p ELLIPSIS;
+    let tail = expect_ident p in
+    ([], [ TailAny tail ])
+  in
+  let first_branch =
+    match current_kind p with
+    | LPAREN -> parse_branch_expr p
+    | ELLIPSIS when peek_n_kind p 2 = BAR -> parse_bare_branch_tail p
+    | tok ->
+        error_at (current p) "expected branch expression, got %s"
+          (string_of_token_kind tok)
+  in
   let rec loop branches rest =
     if consume_if p BAR then
       match current_kind p with
       | ELLIPSIS ->
-          ignore (advance p);
-          let rest = expect_ident p in
-          loop branches rest
+          if peek_n_kind p 2 = BAR then
+            let br = parse_bare_branch_tail p in
+            loop (br :: branches) rest
+          else (
+            ignore (advance p);
+            let rest = expect_ident p in
+            loop branches rest)
       | LPAREN ->
           let br = parse_branch_expr p in
           loop (br :: branches) rest
@@ -477,6 +492,10 @@ let parse_where_decl p =
   in
 
   let parse_where_clause p =
+    let rec parse_where_pattern p =
+      if consume_if p TILDE then WherePatternNot (parse_where_pattern p)
+      else WherePatternExpr (parse_expr p)
+    in
     match current_kind p with
     | IDENT _ ->
         let dst = expect_ident p in
@@ -499,7 +518,7 @@ let parse_where_decl p =
             WhereTreeClause { dst; src; op }
         | COLON ->
             expect_kind p COLON;
-            let pattern = parse_expr p in
+            let pattern = parse_where_pattern p in
             WhereBranchAllMatch { branch = dst; pattern }
         | tok ->
             error_at (current p)
