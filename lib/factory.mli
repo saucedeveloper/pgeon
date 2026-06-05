@@ -4,6 +4,8 @@ type t
 (** Term handle given from factory *)
 type term
 
+type name = string
+
 (** Underlying implementation of term: instantiate with create_... functions *)
 type node = private
   | Bvar of int (* de Bruijn index *)
