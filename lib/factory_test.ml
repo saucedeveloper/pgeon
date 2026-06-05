@@ -5,15 +5,25 @@ let%test _ =
   let (e, factory2) = Factory.create_mvar "e" factory1 in
   let (p, factory3) = Factory.create_mvar "p" factory2 in
   let (_, factory4) = Factory.create_mvar "p" factory3 in
-  let (arg_a, factory5) = Factory.create_bind "exists" p factory4 in
-  let (arg_b, factory6) = Factory.create_bind "forall" e factory5 in
+  let (bind_ex, factory5) = Factory.create_bind "exists" p factory4 in
+  let (bind_fa, factory6) = Factory.create_bind "forall" e factory5 in
+  let (bind_fa2, factory7) = Factory.create_bind "forall" e factory6 in
+  let (bind_fa3, factory8) = Factory.create_bind "forall" e factory7 in
+  let (app_and1, factory9) = Factory.create_app "and" [e; p; bind_ex] factory8 in
+  let (app_and2, factory10) = Factory.create_app "and" [e; p; bind_fa] factory9 in
+  let (app_and3, factory11) = Factory.create_app "and" [e; p; bind_fa] factory10 in
 
-  let (arg_b2, factory7) = Factory.create_bind "forall" e factory6 in
-  (arg_b = arg_b2) &&
-  (arg_a <> arg_b) &&
-  ((Factory.cardinal factory7) = 4) &&
-  (Factory.term_equal arg_b arg_b2) &&
-  not (Factory.term_equal arg_a arg_b)
+  (bind_fa = bind_fa2) &&
+  (bind_fa = bind_fa3) &&
+  (bind_ex <> bind_fa) &&
+  (app_and1 <> app_and2) &&
+  (app_and2 = app_and3) &&
+  (Factory.term_equal bind_fa bind_fa2) &&
+  (Factory.term_equal bind_fa bind_fa3) &&
+  not (Factory.term_equal bind_ex bind_fa) &&
+  not (Factory.term_equal app_and1 app_and2) &&
+  (Factory.term_equal app_and2 app_and3) &&
+  ((Factory.cardinal factory11) = 6)
 
 (* comparison_bvar *)
 let%test _ =
