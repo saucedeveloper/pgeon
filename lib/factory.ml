@@ -273,7 +273,7 @@ let debug_string_of_factory factory =
 
 let main () =
   let run = false in
-  if !run then () else
+  if not run then () else
   (* let a_or_b = App("or", [ref (Fvar "a"); ref (Fvar "b")]) in
   for i = 0 to (Array.length Sys.argv) - 1 do
     Printf.printf "argv[%d] = %s\n" (i) Sys.argv.(i);
