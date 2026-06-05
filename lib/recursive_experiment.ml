@@ -3,6 +3,8 @@ type llist =
 | Next of string * llist
 
 let _ =
+  let run = false in
+  if not run then () else
   let persons = Next ("joe", Nil) in
   let persons_b1 = Next ("jack", persons) in
   let rec string_id list =
