@@ -132,12 +132,12 @@ let%test _ =
     but an expression was expected of type 'a ref *)
 
   let term_to_int term = (
-    match (Factory.term_match term) with
-    | Bvar index -> 1 + index
-    | Fvar name -> 2 + (String.length name)
-    | Mvar name -> 3 + (String.length name)
-    | App (name, terms) -> 4 + (String.length name) + (List.length terms)
-    | Bind (name, _term) -> 5 + (String.length name)
+    match term with
+    | Factory.Bvar index -> 1 + index
+    | Factory.Fvar name -> 2 + (String.length name)
+    | Factory.Mvar name -> 3 + (String.length name)
+    | Factory.App (name, terms) -> 4 + (String.length name) + (List.length terms)
+    | Factory.Bind (name, _term) -> 5 + (String.length name)
   ) in
   let factory = Factory.empty in
   let (e, _) = Factory.create_mvar "e" factory in
