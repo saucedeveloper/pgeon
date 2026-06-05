@@ -94,3 +94,41 @@ let%test _ =
   ((Factory.term_compare mvar_4 bind_2) < 0) &&
 
   ((Factory.term_compare app_3 bind_2) < 0)
+
+(* Checking access to members of Factory *)
+let%test _ =
+  (* let _directly_constructed = Bvar 14 in *)
+  (* Compiler error: Unbound constructor Bvar *)
+
+  (* let variant_index term = (
+    match term with
+    | Bvar index -> 0
+    | Fvar name -> 1
+    | Mvar name -> 2
+    | App (name, terms) -> 3
+    | Bind (name, _term) -> 4
+  ) in *)
+  (* Compiler error: Unbound constructor Bvar (because node ref) *)
+
+  (* let variant_index (term: Factory.term) = (
+    match !term with
+    | Bvar index -> 0
+    | Fvar name -> 1
+    | Mvar name -> 2
+    | App (name, terms) -> 3
+    | Bind (name, _term) -> 4
+  ) in *)
+  (* Compiler error: The value term has type Factory.term
+    but an expression was expected of type 'a ref *)
+
+  let term_to_int term = (
+    match (Factory.term_match term) with
+    | Bvar index -> 1 + index
+    | Fvar name -> 2 + (String.length name)
+    | Mvar name -> 3 + (String.length name)
+    | App (name, terms) -> 4 + (String.length name) + (List.length terms)
+    | Bind (name, _term) -> 5 + (String.length name)
+  ) in
+  let factory = Factory.empty in
+  let (e, _) = Factory.create_mvar "e" factory in
+  (term_to_int e) = 4
