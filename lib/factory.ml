@@ -53,75 +53,30 @@ let string_of_term term =
     in
     string_of_term term
 
-(* Create or get Bvar in factory *)
-let create_bvar index factory =
-  let target = Bvar index in
-  let existing_search = FactoryTermSet.find_opt target factory.set in (
+let create_or_get_term term factory =
+  let existing_search = FactoryTermSet.find_opt term factory.set in (
   match existing_search with
   | Some existing ->
-    (* Printf.printf "create_bvar(%d).existing: targ %s, exst %s\n" index (string_address_of target) (string_address_of existing); *)
     (existing, factory)
   | None ->
-    (* Printf.printf "create_bvar(%d).created: targ %s\n" index (string_address_of target); *)
-    let new_factory = { set = (FactoryTermSet.add target factory.set) } in
-    (target, new_factory)
+    let new_factory = { set = (FactoryTermSet.add term factory.set) } in
+    (term, new_factory)
   )
+
+(* Create or get Bvar in factory *)
+let create_bvar index factory = create_or_get_term (Bvar index) factory
 
 (* Create or get Fvar in factory *)
-let create_fvar name factory =
-  let target = Fvar name in
-  let existing_search = FactoryTermSet.find_opt target factory.set in (
-  match existing_search with
-  | Some existing ->
-    (* Printf.printf "create_fvar(%s).existing: targ %s, exst %s\n" name (string_address_of target) (string_address_of existing); *)
-    (existing, factory)
-  | None ->
-    (* Printf.printf "create_fvar(%s).created: targ %s\n" name (string_address_of target); *)
-    let new_factory = { set = (FactoryTermSet.add target factory.set) } in
-    (target, new_factory)
-  )
+let create_fvar name factory = create_or_get_term (Fvar name) factory
 
 (* Create or get Mvar in factory *)
-let create_mvar name factory =
-  let target = Mvar name in
-  let existing_search = FactoryTermSet.find_opt target factory.set in (
-  match existing_search with
-  | Some existing ->
-    (* Printf.printf "create_mvar(%s).existing: targ %s, exst %s\n" name (string_address_of target) (string_address_of existing); *)
-    (existing, factory)
-  | None ->
-    (* Printf.printf "create_mvar(%s).created: targ %s\n" name (string_address_of target); *)
-    let new_factory = { set = (FactoryTermSet.add target factory.set) } in
-    (target, new_factory)
-  )
+let create_mvar name factory = create_or_get_term (Mvar name) factory
 
 (* Create or get App in factory *)
-let create_app name terms factory =
-  let target = App (name, terms) in
-  let existing_search = FactoryTermSet.find_opt target factory.set in (
-  match existing_search with
-  | Some existing ->
-    (* Printf.printf "create_app(%s, [%d]).existing: targ %s, exst %s\n" name (List.length terms) (string_address_of target) (string_address_of existing); *)
-    (existing, factory)
-  | None ->
-    let new_factory = { set = (FactoryTermSet.add target factory.set) } in
-    (* Printf.printf "create_app(%s, [%d]).created: targ %s\n" name (List.length terms) (string_address_of target); *)
-    (target, new_factory)
-  )
+let create_app name terms factory = create_or_get_term (App (name, terms)) factory
 
 (* Create or get Bind in factory *)
-let create_bind name term factory =
-  let target = Bind (name, term) in
-  let existing_search = FactoryTermSet.find_opt target factory.set in (
-    match existing_search with
-    | Some existing ->
-      (* Printf.printf "create_bind(%s, _).existing: targ %s, exst %s\n" name (string_address_of target) (string_address_of existing); *)
-      (existing, factory)
-    | None ->
-      let new_factory = { set = (FactoryTermSet.add target factory.set) } in
-      (* Printf.printf "create_bind(%s, _).created: targ %s\n" name (string_address_of target); *)
-      (target, new_factory)
-  )
+let create_bind name term factory = create_or_get_term (Bind (name, term)) factory
 
 let cardinal factory = FactoryTermSet.cardinal factory.set
 
