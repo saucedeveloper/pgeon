@@ -107,7 +107,7 @@ let%test _ =
 
 (* Checking access to members of Factory *)
 let%test _ =
-  (* let _directly_constructed = Bvar 14 in *)
+  (* let _directly_constructed = Factory.Bvar 14 in *)
   (* Compiler error: Unbound constructor Bvar *)
 
   (* let variant_index term = (
