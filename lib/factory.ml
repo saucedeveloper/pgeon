@@ -45,7 +45,8 @@ let term_fvar_compare a_name b_name = name_compare a_name b_name
 
 let term_mvar_compare a_name b_name = name_compare a_name b_name
 
-(* Compare App variants for Set implementation *)
+(* Compare App variants for Set implementation
+by name then by arity then by arguments *)
 let rec term_app_compare a_name a_terms b_name b_terms =
   let name_comparison = name_compare a_name b_name in
   if name_comparison <> 0 then
@@ -63,7 +64,8 @@ let rec term_app_compare a_name a_terms b_name b_terms =
       let first_non_zero_comparison = List.find_opt non_zero_comparison term_comparisons in
       Option.value first_non_zero_comparison ~default:0
 
-(* Compare Bind variants for Set implementation *)
+(* Compare Bind variants for Set implementation
+by name then by term *)
 and term_bind_compare a_name a_term b_name b_term =
   let name_comparison = name_compare a_name b_name in
       if name_comparison <> 0 then
@@ -71,14 +73,15 @@ and term_bind_compare a_name a_term b_name b_term =
       else
         term_compare a_term b_term
 
-(* Compare terms for Set implementation (based on memory id) *)
+(* Compare terms for Set implementation
+(uses memory address equality first) *)
 and term_compare (a: term)(b: term) =
   if a == b then
     0
   else
     term_struct_compare a b
 
-(* Compare terms by variant index then by contents recursively *)
+(* Compare terms by variant index then by contents possibly recursively *)
 and term_struct_compare a b =
   match (a, b) with
   | (Bvar a_bvar, Bvar b_bvar) -> term_bvar_compare a_bvar b_bvar
