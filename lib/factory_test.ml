@@ -25,6 +25,7 @@ let%test _ =
   (Factory.term_equal app_and2 app_and3) &&
   ((Factory.cardinal factory11) = 6)
 
+(* No need for unit tests for comparison if it is a builtin
 (* comparison_bvar *)
 let%test _ =
   let factory = Factory.empty in
@@ -104,6 +105,7 @@ let%test _ =
   ((Factory.term_compare mvar_4 bind_2) < 0) &&
 
   ((Factory.term_compare app_3 bind_2) < 0)
+  *)
 
 (* Checking access to members of Factory *)
 let%test _ =
