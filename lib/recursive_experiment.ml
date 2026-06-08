@@ -1,3 +1,6 @@
+(* Experiment to test whether objects
+are copied in recursive types *)
+
 type llist =
 | Nil
 | Next of string * llist
