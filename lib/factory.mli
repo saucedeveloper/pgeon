@@ -32,6 +32,9 @@ val create_bind : string -> term -> t -> (term * t)
 (** Term to string recursively *)
 val string_of_term : (term -> string)
 
+(** Name/identifier of term (not recursive) *)
+val identifier_of_term : (term -> string)
+
 (** Term comparison: a - b *)
 val term_compare : term -> term -> int
 

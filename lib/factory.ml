@@ -53,6 +53,14 @@ let string_of_term term =
     in
     string_of_term term
 
+let identifier_of_term term =
+  match term with
+  | Bvar i -> Printf.sprintf "%d" i
+  | Fvar x -> x
+  | Mvar x -> x
+  | App (f, args) -> f
+  | Bind (b, body) -> b
+
 let create_or_get_term term factory =
   let existing_search = FactoryTermSet.find_opt term factory.set in (
   match existing_search with
