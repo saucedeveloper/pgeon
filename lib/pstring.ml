@@ -78,23 +78,32 @@ t = f(            (* ^.f *)
 *)
 
 let make_pstrings term =
-  let rec recursive (term: Factory.term) (current_path: t) (current_index: int) =
+  let shared_path: pstring_node Dynarray.t = Dynarray.create () in
+  let rec recursive (term: Factory.term) (current_index: int) =
     let created_node = { index = current_index; symbol = get_term_symbol term } in
-    let resulting_path = Array.append current_path [|created_node|] in
+    Dynarray.add_last shared_path created_node;
     match term with
-    | Bvar _ | Fvar _ | Mvar _ -> [resulting_path]
+    | Bvar _ | Fvar _ | Mvar _ -> (
+      let resulting_path = Dynarray.to_array shared_path in
+      Dynarray.remove_last shared_path;
+      [resulting_path]
+    )
     | App (name, terms) -> (
-      let f inner index = recursive inner resulting_path index in
-      let created_paths_by_term = list_map_index f terms in
+      let f index inner = recursive inner index in
+      let created_paths_by_term = List.mapi f terms in
       let inner_created = List.concat created_paths_by_term in
+      Dynarray.remove_last shared_path;
       inner_created
     )
     | Bind (name, inner) -> (
-      let inner_created = recursive inner resulting_path 0 in
+      let inner_created = recursive inner 0 in
+      Dynarray.remove_last shared_path;
       inner_created
     )
   in
-  recursive term [||] pstring_node_root_index
+  let result = recursive term pstring_node_root_index in
+  assert ((Dynarray.length shared_path) = 0);
+  result
 
   (* (* Returns the list of created paths *)
   let rec recursive (path_total: t) (path_last: pstring_node option) (term: Factory.term) = (
