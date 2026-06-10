@@ -38,6 +38,19 @@ let list_map_index (f: 'a -> int -> 'b) (list: 'a list) =
   in
   recursive list 0
 
+let array_map_to_list (f: 'a -> 'b) (array: 'a array) =
+  let array_length = Array.length array in
+  let rec recursive index =
+    match index with
+    | valid when (0 <= valid && valid < array_length) -> (
+      let element = Array.get array valid in
+      let transformed = f element in
+      transformed::(recursive (index + 1))
+    )
+    | _ -> []
+  in
+  recursive 0
+
 (* Make all the pstrings / root-to-leaf traversals in `term` *)
 (*
 t = f('x, ~exists.(P(?z)), 'y, P(?z))
@@ -142,37 +155,21 @@ let get_subterm term index =
     if index = 0 then (Some term) else None
   )
 
-let string_of_pstring_in term pstring =
-  let rec recursive (pstring_rem: t)(current_term: term) =
-    match pstring_rem with
-    | [||] -> ""
-    | [|last_index|] -> (
-      let subterm = get_subterm current_term last_index in
-      match subterm with
-      | Some subterm -> (
-        let id_of_subterm = Factory.identifier_of_term subterm in
-        let result = "." ^ (string_of_int last_index) ^ "." ^ id_of_subterm in
-        (* Printf.printf "[last_index %d].result: %s\n" depth result; *)
-        result
-      )
-      | None -> assert(false);
-    )
-    | _ ->
-      let index = Array.get pstring_rem 0 in
-      let new_pstring_rem = Array.slice pstring_rem 1 ((Array.length pstring_rem) - 1) in
-      let subterm = get_subterm current_term index in
-      match subterm with
-      | None -> assert(false);
-      | Some subterm -> (
-        let id_of_subterm = Factory.identifier_of_term subterm in
-        let result = "." ^ (string_of_int index) ^ "." ^ id_of_subterm ^ (recursive new_pstring_rem subterm) in
-        (* Printf.printf "[inbetween %d].result: %s\n" depth result; *)
-        result
-      )
-  in
-  (Factory.identifier_of_term term) ^ recursive pstring term
+let string_of_term_symbol (symbol: term_symbol) =
+  match symbol.variant with
+  | SymBvar -> "#" ^ symbol.name
+  | SymFvar -> "'" ^ symbol.name
+  | SymMvar -> "?" ^ symbol.name
+  | SymApp  -> ""  ^ symbol.name
+  | SymBind -> "~" ^ symbol.name
 
-let string_of_pstring pstr = String.concat "." (List.map string_of_int pstr)
+let string_of_pstring_node (node: pstring_node) =
+  let symbol_string = string_of_term_symbol node.symbol in
+  match node.index with
+  | -1 -> symbol_string
+  | _ -> Printf.sprintf "%d.%s" node.index symbol_string
+
+let string_of_pstring (pstr: t) = String.concat "." (array_map_to_list string_of_pstring_node pstr)
 
 (*
 Path index for
@@ -227,8 +224,5 @@ let _ =
   let pstrings = make_pstrings a_f in
   Printf.printf "pstrings: { %s }\n" (
     String.concat ", " (List.map string_of_pstring pstrings)
-  );
-  Printf.printf "pstrings in term: { %s }\n" (
-    String.concat ", " (List.map (string_of_pstring_in a_f) pstrings)
   );
   ;;
