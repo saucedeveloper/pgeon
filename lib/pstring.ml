@@ -203,36 +203,37 @@ t = f('x, exists.(P(?z)), 'y, P(?z))
             {t}
 *)
 
-(* Module for Set implementation *)
+(* (* Module for Set implementation *)
 module IdComparableTerm = struct
   type t = term
   let compare a b = compare (2 * Obj.magic a) (2 * Obj.magic b)
 end
 
 (* Set of terms on a leaf of the index *)
-module IndexLeafTermSet = Set.Make(IdComparableTerm)
+module IndexLeafTermSet = Set.Make(IdComparableTerm) *)
 
-let string_of_term_set (term_set: IndexLeafTermSet.t) =
-  let term_list = IndexLeafTermSet.to_list term_set in
+type term_set = (term, unit) Hashtbl.t
+
+let term_set_add (term_set: term_set) (term: Factory.term) =
+  Hashtbl.replace term_set term ();
+  ()
+
+let string_of_term_set (term_set: term_set) =
+  let term_list = List.of_seq (Hashtbl.to_seq_keys term_set) in
   let string_of_term term = Factory.string_address_of term in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
 
 (* Node that contains subnodes based on argument position *)
-type index_array_node = {
-  (* symbol: term_symbol; *)
-  sub_map_nodes: index_map_node Dynarray.t
-}
+type index_array_node = index_map_node Dynarray.t
 
 (* Subnode of map node: either a sub array or a leaf containing the set of matching terms *)
 and index_map_subnode =
 | SubArray of index_array_node
-| SubLeaf of IndexLeafTermSet.t
+| SubLeaf of term_set
 
 (* Node that contains subnodes based on term symbol *)
-and index_map_node = {
-  subnodes: (term_symbol, index_map_subnode) Hashtbl.t;
-}
+and index_map_node = (term_symbol, index_map_subnode) Hashtbl.t
 
 type term_index = {
   root: index_map_node;
@@ -248,13 +249,13 @@ let string_of_index (term_index: term_index) =
   let rec rec_array (current: index_array_node) (depth: int) =
     let indent = string_repeat "  " depth in
     let indent_plus = indent ^ "  " in
-    (* (string_of_term_symbol current.symbol)
-    ^ *) (if (Dynarray.length current.sub_map_nodes) = 0 then
+    (
+      if (Dynarray.length current) = 0 then
         ""
       else (
         "(\n" ^
         let f i map_node = Printf.sprintf "%s%d: %s" indent_plus i (rec_map map_node (depth + 1)) in
-        let subnode_strings = Dynarray.to_list (Dynarray.mapi f current.sub_map_nodes) in
+        let subnode_strings = Dynarray.to_list (Dynarray.mapi f current) in
         let concatenated = String.concat ",\n" subnode_strings in
         concatenated ^ "\n" ^
         indent ^ ")"
@@ -263,7 +264,7 @@ let string_of_index (term_index: term_index) =
   and rec_map (current: index_map_node) (depth: int) =
     let indent = string_repeat "  " depth in
     let indent_plus = indent ^ "  " in
-      (if (Hashtbl.length current.subnodes) = 0 then
+      (if (Hashtbl.length current) = 0 then
         ""
       else (
         "{\n" ^
@@ -275,7 +276,7 @@ let string_of_index (term_index: term_index) =
           | SubLeaf term_set -> string_of_term_set term_set
           in
           Printf.sprintf "%s%s: %s" indent_plus symbol_str last_str in
-        let kvp_sequence: (term_symbol * index_map_subnode) Seq.t = Hashtbl.to_seq current.subnodes in
+        let kvp_sequence: (term_symbol * index_map_subnode) Seq.t = Hashtbl.to_seq current in
         let subnode_strings = List.of_seq (Seq.map f kvp_sequence) in
         let concatenated = String.concat ",\n" subnode_strings in
         concatenated ^ "\n" ^
@@ -284,6 +285,49 @@ let string_of_index (term_index: term_index) =
     )
   in
   rec_map term_index.root 0
+
+let index_insert (pstring: t) (term: Factory.term) (index: term_index) =
+  let rec insert_map (node: index_map_node) (pstring_i: int) =
+    assert (0 <= pstring_i && pstring_i < (Array.length pstring));
+    let target_symbol: term_symbol = (Array.get pstring pstring_i).symbol in
+    let found_subnode = Hashtbl.find_opt node target_symbol in
+    match found_subnode with
+    | None -> (* Create the subnode and add it to the hash table *)
+    | Some subnode -> (
+      (* If subarray and pstring at end -> does not make sense:
+      subarray implies there are arguments to provide no matter the term
+      If subarray and pstring not at end -> insert_array
+      If subleaf and pstring at end -> add to term set
+      If subleaf and pstring not at end -> does not make sense:
+        leaf implies the path ends here no matter the term *)
+      let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
+      match subnode with
+      | SubArray subarray -> (
+        assert (not pstring_at_end);
+        insert_array subarray (pstring_i + 1)
+      )
+      | SubLeaf term_set -> (
+        assert (pstring_at_end);
+        term_set_add term_set term;
+      )
+    )
+    ()
+  and insert_array (node: index_array_node) (pstring_i: int) =
+    assert (0 <= pstring_i && pstring_i < (Array.length pstring));
+    let target_i: int = (Array.get pstring pstring_i).index in
+    (*
+      If target does not exist -> insert at target_i an empty map and insert_map
+      If target exists -> insert_map at that map
+    *)
+    let target_exists = 0 <= target_i && target_i < (Dynarray.length node) in
+    if target_exists then
+      let target = Dynarray.get node target_i in
+      insert_map target pstring_i
+    else
+      
+    ()
+  in
+  insert_map term_index.root 0
 
 let _ =
   let make_hashtbl (list: ('a * 'b) list) =
@@ -311,65 +355,55 @@ let _ =
     String.concat ", " (List.map string_of_pstring pstrings)
   ); *)
   let index = {
-    root = {
-      subnodes = make_hashtbl [
-        (get_term_symbol f1,
-          SubArray {
-            sub_map_nodes = Dynarray.of_list [
-              {
-                subnodes = make_hashtbl [
-                  (get_term_symbol x,
-                    SubLeaf (IndexLeafTermSet.of_list [f5])
-                  );
-                  (get_term_symbol g1,
-                    SubArray {
-                      sub_map_nodes = Dynarray.of_list [
-                        {
-                          subnodes = make_hashtbl [
-                            (get_term_symbol x,
-                              SubLeaf (IndexLeafTermSet.of_list [f2; f4])
-                            );
-                            (get_term_symbol a,
-                              SubLeaf (IndexLeafTermSet.of_list [f1; f3])
-                            );
-                          ];
-                        };
-                        {
-                          subnodes = make_hashtbl [
-                            (get_term_symbol b,
-                              SubLeaf (IndexLeafTermSet.of_list [f2; f3])
-                            );
-                            (get_term_symbol c,
-                              SubLeaf (IndexLeafTermSet.of_list [f4])
-                            );
-                            (get_term_symbol x,
-                              SubLeaf (IndexLeafTermSet.of_list [f1])
-                            );
-                          ];
-                        }
-                      ]
-                    }
-                  );
-                ];
-              };
-              {
-                subnodes = make_hashtbl [
-                  (get_term_symbol b,
-                    SubLeaf (IndexLeafTermSet.of_list [f4])
-                  );
-                  (get_term_symbol c,
-                    SubLeaf (IndexLeafTermSet.of_list [f1; f3])
-                  );
-                  (get_term_symbol x,
-                    SubLeaf (IndexLeafTermSet.of_list [f2; f5])
-                  );
-                ]
-              }
+    root = make_hashtbl [
+      (get_term_symbol f1,
+        SubArray (
+          Dynarray.of_list [
+            make_hashtbl [
+              (get_term_symbol x,
+                SubLeaf (IndexLeafTermSet.of_list [f5])
+              );
+              (get_term_symbol g1,
+                SubArray (
+                  Dynarray.of_list [
+                    make_hashtbl [
+                      (get_term_symbol x,
+                        SubLeaf (IndexLeafTermSet.of_list [f2; f4])
+                      );
+                      (get_term_symbol a,
+                        SubLeaf (IndexLeafTermSet.of_list [f1; f3])
+                      );
+                    ];
+                    make_hashtbl [
+                      (get_term_symbol b,
+                        SubLeaf (IndexLeafTermSet.of_list [f2; f3])
+                      );
+                      (get_term_symbol c,
+                        SubLeaf (IndexLeafTermSet.of_list [f4])
+                      );
+                      (get_term_symbol x,
+                        SubLeaf (IndexLeafTermSet.of_list [f1])
+                      );
+                    ];
+                  ]
+                )
+              );
             ];
-          }
+            make_hashtbl [
+              (get_term_symbol b,
+                SubLeaf (IndexLeafTermSet.of_list [f4])
+              );
+              (get_term_symbol c,
+                SubLeaf (IndexLeafTermSet.of_list [f1; f3])
+              );
+              (get_term_symbol x,
+                SubLeaf (IndexLeafTermSet.of_list [f2; f5])
+              );
+            ];
+          ];
         )
-      ]
-    }
+      )
+    ]
   } in
-  Printf.printf "index:\n%s\n" (string_of_index index);
+  Printf.printf "index: %s\n" (string_of_index index);
   ;;
