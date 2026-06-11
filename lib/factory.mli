@@ -40,3 +40,5 @@ val term_compare : term -> term -> int
 
 (** Term equality comparison: a = b assuming they are from the same factory *)
 val term_equal : term -> term -> bool
+
+val string_address_of : ?n:int -> 'a -> string

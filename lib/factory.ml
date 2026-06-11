@@ -12,10 +12,9 @@ type term =
 (* Address / unique id for x for printing *)
 let address_of x = 2 * (Obj.magic x) / 2
 
-let string_address_of x =
+let string_address_of ?(n=4) x =
   let s = string_of_int (address_of x) in
-  let i = 4 in
-  String.sub s (String.length s - i) i
+  String.sub s (String.length s - n) n
 
 let term_compare (a: term) (b: term) = compare a b
 
