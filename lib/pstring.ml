@@ -203,35 +203,173 @@ t = f('x, exists.(P(?z)), 'y, P(?z))
             {t}
 *)
 
-type index_node = {
-  term_id: Factory.name;
-  sub_nodes: index_node array
+(* Module for Set implementation *)
+module IdComparableTerm = struct
+  type t = term
+  let compare a b = compare (2 * Obj.magic a) (2 * Obj.magic b)
+end
+
+(* Set of terms on a leaf of the index *)
+module IndexLeafTermSet = Set.Make(IdComparableTerm)
+
+let string_of_term_set (term_set: IndexLeafTermSet.t) =
+  let term_list = IndexLeafTermSet.to_list term_set in
+  let string_of_term term = Factory.string_address_of term in
+  let strings = List.map string_of_term term_list in
+  Printf.sprintf "{ %s }" (String.concat ", " strings)
+
+(* Node that contains subnodes based on argument position *)
+type index_array_node = {
+  (* symbol: term_symbol; *)
+  sub_map_nodes: index_map_node Dynarray.t
 }
 
-(* type term_id_variant =
-| BvarId
-| FvarId
-| MvarId
-| AppId
-| BindId
+(* Subnode of map node: either a sub array or a leaf containing the set of matching terms *)
+and index_map_subnode =
+| SubArray of index_array_node
+| SubLeaf of IndexLeafTermSet.t
 
-(* Term identifier used in the index *)
-type term_id = {
-  variant: term_id_variant;
-  id: Factory.name;
-} *)
+(* Node that contains subnodes based on term symbol *)
+and index_map_node = {
+  subnodes: (term_symbol, index_map_subnode) Hashtbl.t;
+}
+
+type term_index = {
+  root: index_map_node;
+}
+
+let rec string_repeat str count =
+  match count with
+  | 1 -> str
+  | _ when 1 < count -> str ^ string_repeat str (count - 1)
+  | _ -> ""
+
+let string_of_index (term_index: term_index) =
+  let rec rec_array (current: index_array_node) (depth: int) =
+    let indent = string_repeat "  " depth in
+    let indent_plus = indent ^ "  " in
+    (* (string_of_term_symbol current.symbol)
+    ^ *) (if (Dynarray.length current.sub_map_nodes) = 0 then
+        ""
+      else (
+        "(\n" ^
+        let f i map_node = Printf.sprintf "%s%d: %s" indent_plus i (rec_map map_node (depth + 1)) in
+        let subnode_strings = Dynarray.to_list (Dynarray.mapi f current.sub_map_nodes) in
+        let concatenated = String.concat ",\n" subnode_strings in
+        concatenated ^ "\n" ^
+        indent ^ ")"
+      )
+    )
+  and rec_map (current: index_map_node) (depth: int) =
+    let indent = string_repeat "  " depth in
+    let indent_plus = indent ^ "  " in
+      (if (Hashtbl.length current.subnodes) = 0 then
+        ""
+      else (
+        "{\n" ^
+        let f kvp =
+          let (symbol, subnode) = kvp in
+          let symbol_str = string_of_term_symbol symbol in
+          let last_str = match subnode with
+          | SubArray array_node -> rec_array array_node (depth + 1)
+          | SubLeaf term_set -> string_of_term_set term_set
+          in
+          Printf.sprintf "%s%s: %s" indent_plus symbol_str last_str in
+        let kvp_sequence: (term_symbol * index_map_subnode) Seq.t = Hashtbl.to_seq current.subnodes in
+        let subnode_strings = List.of_seq (Seq.map f kvp_sequence) in
+        let concatenated = String.concat ",\n" subnode_strings in
+        concatenated ^ "\n" ^
+        indent ^ "}"
+      )
+    )
+  in
+  rec_map term_index.root 0
 
 let _ =
+  let make_hashtbl (list: ('a * 'b) list) =
+    let sequence: ('a * 'b) Seq.t = List.to_seq list in
+    Hashtbl.of_seq sequence
+  in
+
   let factory0 = Factory.empty in
-  let (f_x, factory1) = Factory.create_fvar "x" factory0 in
-  let (f_y, factory2) = Factory.create_fvar "y" factory1 in
-  let (m_z, factory3) = Factory.create_mvar "z" factory2 in
-  let (a_p, factory4) = Factory.create_app "P" [m_z] factory3 in
-  let (b_e, factory5) = Factory.create_bind "exists" a_p factory4 in
-  let (a_f, _factory6) = Factory.create_app "f" [f_x; b_e; f_y; a_p] factory5 in
-  Printf.printf "term: %s\n" (string_of_term a_f);
+  let (a, factory1) = Factory.create_app "a" [] factory0 in
+  let (b, factory2) = Factory.create_app "b" [] factory1 in
+  let (c, factory3) = Factory.create_app "c" [] factory2 in
+  let (x, factory4) = Factory.create_fvar "*" factory3 in
+  let (g1, factory5) = Factory.create_app "g" [a; x] factory4 in
+  let (g2, factory6) = Factory.create_app "g" [x; b] factory5 in
+  let (g3, factory7) = Factory.create_app "g" [a; b] factory6 in
+  let (g4, factory8) = Factory.create_app "g" [x; c] factory7 in
+  let (f1, factory9) = Factory.create_app "f" [g1; c] factory8 in
+  let (f2, factory10) = Factory.create_app "f" [g2; x] factory9 in
+  let (f3, factory11) = Factory.create_app "f" [g3; c] factory10 in
+  let (f4, factory12) = Factory.create_app "f" [g4; b] factory11 in
+  let (f5, factory13) = Factory.create_app "f" [x; x] factory12 in
+  (* Printf.printf "term: %s\n" (string_of_term a_f);
   let pstrings = make_pstrings a_f in
   Printf.printf "pstrings: { %s }\n" (
     String.concat ", " (List.map string_of_pstring pstrings)
-  );
+  ); *)
+  let index = {
+    root = {
+      subnodes = make_hashtbl [
+        (get_term_symbol f1,
+          SubArray {
+            sub_map_nodes = Dynarray.of_list [
+              {
+                subnodes = make_hashtbl [
+                  (get_term_symbol x,
+                    SubLeaf (IndexLeafTermSet.of_list [f5])
+                  );
+                  (get_term_symbol g1,
+                    SubArray {
+                      sub_map_nodes = Dynarray.of_list [
+                        {
+                          subnodes = make_hashtbl [
+                            (get_term_symbol x,
+                              SubLeaf (IndexLeafTermSet.of_list [f2; f4])
+                            );
+                            (get_term_symbol a,
+                              SubLeaf (IndexLeafTermSet.of_list [f1; f3])
+                            );
+                          ];
+                        };
+                        {
+                          subnodes = make_hashtbl [
+                            (get_term_symbol b,
+                              SubLeaf (IndexLeafTermSet.of_list [f2; f3])
+                            );
+                            (get_term_symbol c,
+                              SubLeaf (IndexLeafTermSet.of_list [f4])
+                            );
+                            (get_term_symbol x,
+                              SubLeaf (IndexLeafTermSet.of_list [f1])
+                            );
+                          ];
+                        }
+                      ]
+                    }
+                  );
+                ];
+              };
+              {
+                subnodes = make_hashtbl [
+                  (get_term_symbol b,
+                    SubLeaf (IndexLeafTermSet.of_list [f4])
+                  );
+                  (get_term_symbol c,
+                    SubLeaf (IndexLeafTermSet.of_list [f1; f3])
+                  );
+                  (get_term_symbol x,
+                    SubLeaf (IndexLeafTermSet.of_list [f2; f5])
+                  );
+                ]
+              }
+            ];
+          }
+        )
+      ]
+    }
+  } in
+  Printf.printf "index:\n%s\n" (string_of_index index);
   ;;
