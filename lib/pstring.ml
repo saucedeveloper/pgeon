@@ -448,7 +448,6 @@ let term_index_remove (term_index: term_index) (pstring: t) (term: Factory.term)
           ()
       )
     )
-  (* Hashtbl.length node *)
   and remove_array (node: index_array_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_i: int = (Array.get pstring pstring_i).index in
