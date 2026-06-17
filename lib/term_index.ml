@@ -78,9 +78,10 @@ let rec string_repeat str count =
   | _ -> ""
 
 let string_of_term_index (term_index: term_index) =
+  let indent_unit = "    " in
   let rec rec_array (current: index_array_node) (depth: int) =
-    let indent = string_repeat "  " depth in
-    let indent_plus = indent ^ "  " in
+    let indent = string_repeat indent_unit depth in
+    let indent_plus = indent ^ indent_unit in
     (
       if (SparseArray.cardinal current) = 0 then
         "[]"
@@ -98,8 +99,8 @@ let string_of_term_index (term_index: term_index) =
       )
     )
   and rec_map (current: index_map_node) (depth: int) =
-    let indent = string_repeat "  " depth in
-    let indent_plus = indent ^ "  " in
+    let indent = string_repeat indent_unit depth in
+    let indent_plus = indent ^ indent_unit in
       (if (SymbolKeyedMap.cardinal current) = 0 then
         "{}"
       else (
@@ -127,6 +128,11 @@ let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
   | Some value -> "Some(" ^ (string_of value) ^ ")"
   | None -> "None"
 
+let string_of_option_variant (x: 'a option) =
+  match x with
+  | Some value -> "Some"
+  | None -> "None"
+
 let term_index_empty = { root = SymbolKeyedMap.empty }
 
 let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.term) =
@@ -134,36 +140,39 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
     (* Printf.printf "> add_map %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Pstring.term_symbol = (Array.get pstring pstring_i).symbol in
-    (* Printf.printf ">> target_symbol: %s\n" (string_of_term_symbol target_symbol); *)
+    (* Printf.printf ">> target_symbol: %s\n" (Pstring.string_of_term_symbol target_symbol); *)
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
     (* Printf.printf ">> pstring_at_end: %s\n" (if pstring_at_end then "true" else "false"); *)
-    let update_symbol_value search = match search with
-    | None -> (
-      (* Create the subnode and add it to the hash table *)
-      if pstring_at_end then (
-        Some (SubLeaf (TermSet.singleton term))
-      ) else (
-        let new_subarray = add_array SparseArray.empty (pstring_i + 1) in
-        Some (SubArray new_subarray)
+    let update_symbol_value search =
+      (* Printf.printf ">>> update_symbol_value: %s\n" (string_of_option_variant search); *)
+      match search with
+      | None -> (
+        (* Create the subnode and add it to the hash table *)
+        if pstring_at_end then (
+          Some (SubLeaf (TermSet.singleton term))
+        ) else (
+          let new_subarray = add_array SparseArray.empty (pstring_i + 1) in
+          Some (SubArray new_subarray)
+        )
       )
-    )
-    | Some subnode -> (
-      (* If subarray and pstring at end -> does not make sense:
-      subarray implies there are arguments to provide no matter the term
-      If subarray and pstring not at end -> add_array
-      If subleaf and pstring at end -> add to term set
-      If subleaf and pstring not at end -> does not make sense:
-        leaf implies the path ends here no matter the term *)
-      match subnode with
-      | SubArray subarray -> (
-        assert (not pstring_at_end);
-        Some (SubArray (add_array subarray (pstring_i + 1)))
+      | Some subnode -> (
+        (* If subarray and pstring at end -> does not make sense:
+        subarray implies there are arguments to provide no matter the term
+        If subarray and pstring not at end -> add_array
+        If subleaf and pstring at end -> add to term set
+        If subleaf and pstring not at end -> does not make sense:
+          leaf implies the path ends here no matter the term *)
+        match subnode with
+        | SubArray subarray -> (
+          assert (not pstring_at_end);
+          Some (SubArray (add_array subarray (pstring_i + 1)))
+        )
+        | SubLeaf term_set -> (
+          assert (pstring_at_end);
+          Some (SubLeaf (TermSet.add term term_set))
+        )
       )
-      | SubLeaf term_set -> (
-        assert (pstring_at_end);
-        Some (SubLeaf (TermSet.add term term_set))
-      )
-    ) in
+    in
 
     SymbolKeyedMap.update target_symbol update_symbol_value node
 
@@ -178,12 +187,11 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
     *)
     let update_index_value search = match search with
     | None -> (
-      let new_submap = add_map SymbolKeyedMap.empty target_i in
+      let new_submap = add_map SymbolKeyedMap.empty pstring_i in
       Some new_submap
     )
     | Some found -> Some (add_map found pstring_i)
     in
-
     SparseArray.update target_i update_index_value node
   in
   { term_index with root = add_map term_index.root 0 }
@@ -191,69 +199,66 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
 let term_index_remove (term_index: term_index) (pstring: Pstring.t) (term: Factory.term) =
   let rec remove_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
-    let target_symbol: term_symbol = (Array.get pstring pstring_i).symbol in
-    let found_subnode = Hashtbl.find_opt node target_symbol in
+    let target_symbol: Pstring.term_symbol = (Array.get pstring pstring_i).symbol in
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
-    match found_subnode with
-    | None -> (
-      (* Nothing to delete *)
-      assert (false);
-    )
+    let update_symbol_value search = match search with
+    | None -> assert (false); (* Nothing to remove *)
     | Some subnode -> (
       (* If array, assert pstring not at end, remove_array of the subarray *)
       (* If leaf, assert pstring at end, remove from set, possibly deleting the leaf if becomes empty *)
       match subnode with
       | SubArray subarray -> (
         assert (not pstring_at_end);
-        remove_array subarray (pstring_i + 1);
-        if (Hashtbl.length subarray) = 0 then
-          let _ = Hashtbl.remove node target_symbol in
-          ()
+        let subarray_removed = remove_array subarray (pstring_i + 1) in
+        if (SparseArray.cardinal subarray_removed) = 0 then
+          None (* Remove entry for target_symbol *)
         else
-          ()
+          Some (SubArray subarray_removed)
       )
       | SubLeaf term_set -> (
         assert (pstring_at_end);
-        assert (TermSet.mem term_set term); (* term is present *)
-        term_set_remove term_set term;
-        assert (not (TermSet.mem term_set term)); (* term is removed *)
-        if (TermSet.length term_set) = 0 then
-          let length_before = Hashtbl.length node in
-          Hashtbl.remove node target_symbol;
-          let length_after = Hashtbl.length node in
-          assert (length_after = length_before - 1); (* empty set is removed *)
-          ()
+        assert (TermSet.mem term term_set); (* term is present *)
+        let term_set_removed = TermSet.remove term term_set in
+        assert (not (TermSet.mem term term_set_removed)); (* term is removed *)
+        if (TermSet.cardinal term_set_removed) = 0 then
+          None (* Remove entry for target_symbol *)
         else
-          ()
+          Some (SubLeaf term_set_removed)
       )
-    )
+    ) in
+    SymbolKeyedMap.update target_symbol update_symbol_value node
+
   and remove_array (node: index_array_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_i: int = (Array.get pstring pstring_i).index in
-    let target_search = Hashtbl.find_opt node target_i in
-    (*
-    If submap exists remove_map and if |map| = 0 remove its entry
-    *)
-    match target_search with
+    let update_index_value search = match search with
+    | None -> assert (false);
     | Some subnode -> (
-      remove_map subnode pstring_i;
-      if (Hashtbl.length subnode) = 0 then
-        let _ = index_array_node_remove node target_i in
-        ()
+      let subnode_removed = remove_map subnode pstring_i in
+      if (SymbolKeyedMap.cardinal subnode_removed) = 0 then
+        None (* Remove entry for target_i *)
       else
-        ()
-    )
-    | None -> (
-      let _ = assert (false) in (* Nothing to remove *)
-      ()
-    )
+        Some subnode_removed
+    ) in
+    SparseArray.update target_i update_index_value node
   in
-  remove_map term_index.root 0
+  { term_index with root = (remove_map term_index.root 0) }
+
+type index_fold = {
+  index : term_index;
+  term : Factory.term;
+}
 
 let _ =
-  let make_hashtbl (list: ('a * 'b) list) =
+  let make_map (list: ('a * 'b) list) =
     let sequence: ('a * 'b) Seq.t = List.to_seq list in
-    Hashtbl.of_seq sequence
+    SymbolKeyedMap.of_seq sequence
+  in
+
+  let index_array_node_make (nodes: index_map_node list) =
+    let pair i x = (i, x) in
+    let sequence = Seq.mapi pair (List.to_seq nodes) in
+    SparseArray.of_seq sequence
   in
 
   let factory0 = Factory.empty in
@@ -271,55 +276,51 @@ let _ =
   let (f4, factory12) = Factory.create_app "f" [g4; b] factory11 in
   let (f5, factory13) = Factory.create_app "f" [x; x] factory12 in
   let terms = [f1; f2; f3; f4; f5] in
-  (* Printf.printf "term: %s\n" (string_of_term a_f);
-  let pstrings = make_pstrings a_f in
-  Printf.printf "pstrings: { %s }\n" (
-    String.concat ", " (List.map string_of_pstring pstrings)
-  ); *)
+
   let manual_index = {
-    root = make_hashtbl [
-      (get_term_symbol f1,
+    root = make_map [
+      (Pstring.get_term_symbol f1,
         SubArray (
           index_array_node_make [
-            make_hashtbl [
-              (get_term_symbol x,
-                SubLeaf (term_set_of_list [f5])
+            make_map [
+              (Pstring.get_term_symbol x,
+                SubLeaf (TermSet.of_list [f5])
               );
-              (get_term_symbol g1,
+              (Pstring.get_term_symbol g1,
                 SubArray (
                   index_array_node_make [
-                    make_hashtbl [
-                      (get_term_symbol x,
-                        SubLeaf (term_set_of_list [f2; f4])
+                    make_map [
+                      (Pstring.get_term_symbol x,
+                        SubLeaf (TermSet.of_list [f2; f4])
                       );
-                      (get_term_symbol a,
-                        SubLeaf (term_set_of_list [f1; f3])
+                      (Pstring.get_term_symbol a,
+                        SubLeaf (TermSet.of_list [f1; f3])
                       );
                     ];
-                    make_hashtbl [
-                      (get_term_symbol b,
-                        SubLeaf (term_set_of_list [f2; f3])
+                    make_map [
+                      (Pstring.get_term_symbol b,
+                        SubLeaf (TermSet.of_list [f2; f3])
                       );
-                      (get_term_symbol c,
-                        SubLeaf (term_set_of_list [f4])
+                      (Pstring.get_term_symbol c,
+                        SubLeaf (TermSet.of_list [f4])
                       );
-                      (get_term_symbol x,
-                        SubLeaf (term_set_of_list [f1])
+                      (Pstring.get_term_symbol x,
+                        SubLeaf (TermSet.of_list [f1])
                       );
                     ];
                   ]
                 )
               );
             ];
-            make_hashtbl [
-              (get_term_symbol b,
-                SubLeaf (term_set_of_list [f4])
+            make_map [
+              (Pstring.get_term_symbol b,
+                SubLeaf (TermSet.of_list [f4])
               );
-              (get_term_symbol c,
-                SubLeaf (term_set_of_list [f1; f3])
+              (Pstring.get_term_symbol c,
+                SubLeaf (TermSet.of_list [f1; f3])
               );
-              (get_term_symbol x,
-                SubLeaf (term_set_of_list [f2; f5])
+              (Pstring.get_term_symbol x,
+                SubLeaf (TermSet.of_list [f2; f5])
               );
             ];
           ];
@@ -329,41 +330,46 @@ let _ =
   } in
   Printf.printf "manual_index: %s\n\n" (string_of_term_index manual_index);
 
-  let procedural_index = term_index_create () in
+  let procedural_index1 = term_index_empty in
 
-  let print_insertions arg =
-    let (pstring, term) = arg in
-    Printf.printf "pstring: %s\n" (string_of_pstring pstring);
-    let () = term_index_add procedural_index pstring term in
-    Printf.printf "procedural_index: %s\n" (string_of_term_index procedural_index);
-    ()
+  let print_insertions fold pstring =
+    let index = fold.index in
+    let term = fold.term in
+    Printf.printf "pstring: %s\n" (Pstring.string_of_pstring pstring);
+    let new_index = term_index_add index pstring term in
+    Printf.printf "procedural_index: %s\n" (string_of_term_index new_index);
+    { fold with index = new_index }
   in
 
-  let print_insertions_many fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
-    let pstrings = make_pstrings fterm in
-    let pstrings_with_term = List.map (fun pstr -> (pstr, fterm)) pstrings in
-    List.iter print_insertions pstrings_with_term;
+  let print_insertions_many current_index term =
+    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
+    let pstrings = Pstring.make_pstrings term in
+    let initial = { index = current_index; term = term } in
+    let new_index = (List.fold_left print_insertions initial pstrings).index in
     Printf.printf "\n";
+    new_index
   in
 
-  let print_deletions arg =
-    let (pstring, term) = arg in
-    Printf.printf "pstring: %s\n" (string_of_pstring pstring);
-    let () = term_index_remove procedural_index pstring term in
-    Printf.printf "procedural_index: %s\n" (string_of_term_index procedural_index);
-    ()
+  let print_deletions fold pstring =
+    let index = fold.index in
+    let term = fold.term in
+    Printf.printf "pstring: %s\n" (Pstring.string_of_pstring pstring);
+    let new_index = term_index_remove index pstring term in
+    Printf.printf "procedural_index: %s\n" (string_of_term_index new_index);
+    { fold with index = new_index }
   in
 
-  let print_deletions_many fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
-    let pstrings = make_pstrings fterm in
-    let pstrings_with_term = List.map (fun pstr -> (pstr, fterm)) pstrings in
-    List.iter print_deletions pstrings_with_term;
+  let print_deletions_many current_index term =
+    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
+    let pstrings = Pstring.make_pstrings term in
+    let initial = { index = current_index; term = term } in
+    let new_index = (List.fold_left print_deletions initial pstrings).index in
     Printf.printf "\n";
+    new_index
   in
 
-  List.iter print_insertions_many terms;
+  let procedural_index2 = List.fold_left print_insertions_many procedural_index1 terms in
   Printf.printf "\n\nDeletions:\n\n";
-  List.iter print_deletions_many terms;
+  let _ = List.fold_left print_deletions_many procedural_index2 terms in
+  ()
   ;;
