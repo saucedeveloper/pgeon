@@ -49,7 +49,6 @@ let array_map_to_list (f: 'a -> 'b) (array: 'a array) =
   in
   recursive 0
 
-(* Make all the pstrings / root-to-leaf traversals in `term` *)
 (*
 t = f('x, ~exists.(P(?z)), 'y, P(?z))
 
@@ -75,6 +74,7 @@ t = f(            (* ^.f *)
 )
 *)
 
+(* Make all the pstrings / root-to-leaf traversals in `term` *)
 let make_pstrings term =
   let shared_path: pstring_node Dynarray.t = Dynarray.create () in
   let rec recursive (term: Factory.term) (current_index: int) =
