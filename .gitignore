@@ -1,2 +1,6 @@
 _build/
 .dune/
+
+*.cmo
+*.cmi
+*.exe
