@@ -74,18 +74,47 @@ t = f(            (* ^.f *)
 )
 *)
 
+type pstrings_param = {
+  flags : int;
+}
+
+(* Make int flags from booleans *)
+let make_pstrings_param
+  (bvar_is_leaf: bool)
+  (fvar_is_leaf: bool)
+  (mvar_is_leaf: bool)
+  (app_const_is_leaf: bool) = { flags =
+        ((Bool.to_int bvar_is_leaf)      lsl 0)
+    lor ((Bool.to_int fvar_is_leaf)      lsl 1)
+    lor ((Bool.to_int mvar_is_leaf)      lsl 2)
+    lor ((Bool.to_int app_const_is_leaf) lsl 3)
+  }
+
+let param_bvar_is_leaf param =      (param.flags lsr 0) <> 0
+let param_fvar_is_leaf param =      (param.flags lsr 1) <> 0
+let param_mvar_is_leaf param =      (param.flags lsr 2) <> 0
+let param_app_const_is_leaf param = (param.flags lsr 3) <> 0
+
 (* Make all the pstrings / root-to-leaf traversals in `term` *)
-let make_pstrings term =
+let make_pstrings (term: Factory.term) (param: pstrings_param) =
   let shared_path: pstring_node Dynarray.t = Dynarray.create () in
+  let resulting_path_and_remove_last get_resulting =
+    if get_resulting then
+      let resulting_path = Dynarray.to_array shared_path in
+      Dynarray.remove_last shared_path;
+      [resulting_path]
+    else
+      let _ = Dynarray.remove_last shared_path in
+      []
+  in
   let rec recursive (term: Factory.term) (current_index: int) =
     let created_node = { index = current_index; symbol = get_term_symbol term } in
     Dynarray.add_last shared_path created_node;
     match term with
-    | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
-      let resulting_path = Dynarray.to_array shared_path in
-      Dynarray.remove_last shared_path;
-      [resulting_path]
-    )
+    | Bvar _ -> (resulting_path_and_remove_last (param_bvar_is_leaf param))
+    | Fvar _ -> (resulting_path_and_remove_last (param_fvar_is_leaf param))
+    | Mvar _ -> (resulting_path_and_remove_last (param_mvar_is_leaf param))
+    | App (_, []) -> (resulting_path_and_remove_last (param_app_const_is_leaf param))
     | App (name, terms) -> (
       let f index inner = recursive inner index in
       let created_paths_by_term = List.mapi f terms in

@@ -29,7 +29,8 @@ let _ =
   let all_pstrings = Dynarray.create () in
   let print_term_pstrings term =
     Printf.printf "term: %s\n" (Factory.string_of_term term);
-    let pstrings = Pstring.make_pstrings term in
+    let pstrings_param = Pstring.make_pstrings_param true true true true in
+    let pstrings = Pstring.make_pstrings term pstrings_param in
     Dynarray.append_list all_pstrings pstrings;
     Printf.printf "pstrings: { %s }\n" (
       String.concat ", " (List.map Pstring.string_of_pstring pstrings)
