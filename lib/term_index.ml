@@ -77,11 +77,10 @@ let rec string_repeat str count =
   | _ when 1 < count -> str ^ string_repeat str (count - 1)
   | _ -> ""
 
-let string_of (term_index: t) =
-  let indent_unit = "    " in
+let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   let rec rec_array (current: index_array_node) (depth: int) =
-    let indent = string_repeat indent_unit depth in
-    let indent_plus = indent ^ indent_unit in
+    let indent = string_repeat indent_pattern depth in
+    let indent_plus = indent ^ indent_pattern in
     (
       if (SparseArray.cardinal current) = 0 then
         "[]"
@@ -99,8 +98,8 @@ let string_of (term_index: t) =
       )
     )
   and rec_map (current: index_map_node) (depth: int) =
-    let indent = string_repeat indent_unit depth in
-    let indent_plus = indent ^ indent_unit in
+    let indent = string_repeat indent_pattern depth in
+    let indent_plus = indent ^ indent_pattern in
       (if (SymbolKeyedMap.cardinal current) = 0 then
         "{}"
       else (
@@ -121,7 +120,7 @@ let string_of (term_index: t) =
       )
     )
   in
-  rec_map term_index.root 0
+  rec_map term_index.root indent_level
 
 let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
   match x with
