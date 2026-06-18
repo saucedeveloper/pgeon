@@ -1,33 +1,13 @@
-type term_symbol_variant =
-| SymBvar
-| SymFvar
-| SymMvar
-| SymApp
-| SymBind
-
-(* Identifies the term symbol uniquely *)
-type term_symbol = {
-  variant: term_symbol_variant;
-  name: Factory.name;
-}
-
-type pstring_node = {
-  symbol: term_symbol;
-  index: int;
+(* Node of a path string: identifies an index then a symbol *)
+type node = {
+  index : int;
+  symbol : Term_symbol.t;
 }
 
 (* Path string: array of index/symbol pairs decribing the traversal of a term *)
-type t = pstring_node array
+type t = node array
 
-let pstring_node_root_index = -1
-
-let get_term_symbol term =
-  match term with
-  | Factory.Bvar index -> { variant = SymBvar; name = string_of_int index }
-  | Factory.Fvar name -> { variant = SymFvar; name = name }
-  | Factory.Mvar name -> { variant = SymMvar; name = name }
-  | Factory.App (name, _) -> { variant = SymApp; name = name }
-  | Factory.Bind (name, _) -> { variant = SymBind; name = name }
+let node_root_index = -1
 
 let list_map_index (f: 'a -> int -> 'b) (list: 'a list) =
   let rec recursive remainder index = match remainder with
@@ -74,47 +54,18 @@ t = f(            (* ^.f *)
 )
 *)
 
-type pstrings_param = {
-  flags : int;
-}
-
-(* Make int flags from booleans *)
-let make_pstrings_param
-  (bvar_is_leaf: bool)
-  (fvar_is_leaf: bool)
-  (mvar_is_leaf: bool)
-  (app_const_is_leaf: bool) = { flags =
-        ((Bool.to_int bvar_is_leaf)      lsl 0)
-    lor ((Bool.to_int fvar_is_leaf)      lsl 1)
-    lor ((Bool.to_int mvar_is_leaf)      lsl 2)
-    lor ((Bool.to_int app_const_is_leaf) lsl 3)
-  }
-
-let param_bvar_is_leaf param =      (param.flags lsr 0) <> 0
-let param_fvar_is_leaf param =      (param.flags lsr 1) <> 0
-let param_mvar_is_leaf param =      (param.flags lsr 2) <> 0
-let param_app_const_is_leaf param = (param.flags lsr 3) <> 0
-
 (* Make all the pstrings / root-to-leaf traversals in `term` *)
-let make_pstrings (term: Factory.term) (param: pstrings_param) =
-  let shared_path: pstring_node Dynarray.t = Dynarray.create () in
-  let resulting_path_and_remove_last get_resulting =
-    if get_resulting then
+let all_of_term (term: Factory.term) =
+  let shared_path: node Dynarray.t = Dynarray.create () in
+  let rec recursive (term: Factory.term) (current_index: int) =
+    let created_node = { index = current_index; symbol = Term_symbol.of_term term } in
+    Dynarray.add_last shared_path created_node;
+    match term with
+    | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
       let resulting_path = Dynarray.to_array shared_path in
       Dynarray.remove_last shared_path;
       [resulting_path]
-    else
-      let _ = Dynarray.remove_last shared_path in
-      []
-  in
-  let rec recursive (term: Factory.term) (current_index: int) =
-    let created_node = { index = current_index; symbol = get_term_symbol term } in
-    Dynarray.add_last shared_path created_node;
-    match term with
-    | Bvar _ -> (resulting_path_and_remove_last (param_bvar_is_leaf param))
-    | Fvar _ -> (resulting_path_and_remove_last (param_fvar_is_leaf param))
-    | Mvar _ -> (resulting_path_and_remove_last (param_mvar_is_leaf param))
-    | App (_, []) -> (resulting_path_and_remove_last (param_app_const_is_leaf param))
+    )
     | App (name, terms) -> (
       let f index inner = recursive inner index in
       let created_paths_by_term = List.mapi f terms in
@@ -128,7 +79,7 @@ let make_pstrings (term: Factory.term) (param: pstrings_param) =
       inner_created
     )
   in
-  let result = recursive term pstring_node_root_index in
+  let result = recursive term node_root_index in
   assert ((Dynarray.length shared_path) = 0);
   result
 
@@ -142,18 +93,10 @@ let get_subterm term index =
     if index = 0 then (Some term) else None
   )
 
-let string_of_term_symbol (symbol: term_symbol) =
-  match symbol.variant with
-  | SymBvar -> "#" ^ symbol.name
-  | SymFvar -> "'" ^ symbol.name
-  | SymMvar -> "?" ^ symbol.name
-  | SymApp  -> ""  ^ symbol.name
-  | SymBind -> "~" ^ symbol.name
-
-let string_of_pstring_node (node: pstring_node) =
-  let symbol_string = string_of_term_symbol node.symbol in
+let string_of_node (node: node) =
+  let symbol_string = Term_symbol.string_of node.symbol in
   match node.index with
   | -1 -> symbol_string
   | _ -> Printf.sprintf "%d.%s" node.index symbol_string
 
-let string_of_pstring (pstr: t) = String.concat "." (array_map_to_list string_of_pstring_node pstr)
+let string_of (pstr: t) = String.concat "." (array_map_to_list string_of_node pstr)
