@@ -2,6 +2,11 @@
 
 open Term_index
 
+type index_fold = {
+  index : Term_index.t;
+  term : Factory.term;
+}
+
 let _ =
   let make_map (list: ('a * 'b) list) =
     let sequence: ('a * 'b) Seq.t = List.to_seq list in
@@ -81,24 +86,26 @@ let _ =
       )
     ]
   } in
-  Printf.printf "manual_index: %s\n\n" (string_of_term_index manual_index);
+  Printf.printf "manual_index: %s\n\n" (Term_index.string_of manual_index);
 
-  let procedural_index1 = term_index_empty in
+  let procedural_index1 = Term_index.empty in
 
   let print_insertions fold pstring =
     let index = fold.index in
     let term = fold.term in
     Printf.printf "pstring: %s\n" (Pstring.string_of pstring);
-    let new_index = term_index_add index pstring term in
-    Printf.printf "procedural_index: %s\n" (string_of_term_index new_index);
+    let new_index = Term_index.add index pstring term in
+    Printf.printf "procedural_index: %s\n" (Term_index.string_of new_index);
     { fold with index = new_index }
   in
 
   let print_insertions_many current_index term =
     Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
-    let pstrings = Pstring.all_of_term term in
-    let initial = { index = current_index; term = term } in
-    let new_index = (List.fold_left print_insertions initial pstrings).index in
+    (* let pstrings = Pstring.all_of_term term in *)
+    (* let initial = { index = current_index; term = term } in *)
+    let new_index = Term_index.add_term current_index term in
+    Printf.printf "procedural_index: %s\n" (Term_index.string_of new_index);
+    (* let new_index = (List.fold_left print_insertions initial pstrings).index in *)
     Printf.printf "\n";
     new_index
   in
@@ -107,16 +114,18 @@ let _ =
     let index = fold.index in
     let term = fold.term in
     Printf.printf "pstring: %s\n" (Pstring.string_of pstring);
-    let new_index = term_index_remove index pstring term in
-    Printf.printf "procedural_index: %s\n" (string_of_term_index new_index);
+    let new_index = Term_index.remove index pstring term in
+    Printf.printf "procedural_index: %s\n" (Term_index.string_of new_index);
     { fold with index = new_index }
   in
 
   let print_deletions_many current_index term =
     Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
-    let pstrings = Pstring.all_of_term term in
-    let initial = { index = current_index; term = term } in
-    let new_index = (List.fold_left print_deletions initial pstrings).index in
+    (* let pstrings = Pstring.all_of_term term in
+    let initial = { index = current_index; term = term } in *)
+    let new_index = Term_index.remove_term current_index term in
+    Printf.printf "procedural_index: %s\n" (Term_index.string_of new_index);
+    (* let new_index = (List.fold_left print_deletions initial pstrings).index in *)
     Printf.printf "\n";
     new_index
   in
