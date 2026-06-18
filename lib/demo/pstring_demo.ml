@@ -1,4 +1,4 @@
-(* pgeon/lib $ ocamlc factory.ml pstring.ml demo/pstring_demo.ml -o pstring_demo.exe *)
+(* pgeon/lib $ ocamlc factory.ml term_symbol.ml pstring.ml demo/pstring_demo.ml -o pstring_demo.exe *)
 
 module PstringSetElement = struct
   type t = Pstring.t
@@ -29,11 +29,10 @@ let _ =
   let all_pstrings = Dynarray.create () in
   let print_term_pstrings term =
     Printf.printf "term: %s\n" (Factory.string_of_term term);
-    let pstrings_param = Pstring.make_pstrings_param true true true true in
-    let pstrings = Pstring.make_pstrings term pstrings_param in
+    let pstrings = Pstring.all_of_term term in
     Dynarray.append_list all_pstrings pstrings;
     Printf.printf "pstrings: { %s }\n" (
-      String.concat ", " (List.map Pstring.string_of_pstring pstrings)
+      String.concat ", " (List.map Pstring.string_of pstrings)
     );
     ()
   in
@@ -41,7 +40,7 @@ let _ =
   let pstring_set = PstringSet.of_seq (Dynarray.to_seq all_pstrings) in
   let string_of_pstring_set pstring_set =
     let pstring_list = PstringSet.to_list pstring_set in
-    let strings = List.map Pstring.string_of_pstring pstring_list in
+    let strings = List.map Pstring.string_of pstring_list in
     Printf.sprintf "{ %s }" (String.concat ", " strings)
   in
   Printf.printf "All pstrings: %s\n" (string_of_pstring_set pstring_set);

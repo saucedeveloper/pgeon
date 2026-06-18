@@ -1,4 +1,4 @@
-(* pgeon/lib $ ocamlc factory.ml pstring.ml term_index.ml demo/term_index_demo.ml -o term_index_demo.exe *)
+(* pgeon/lib $ ocamlc factory.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml -o term_index_demo.exe *)
 
 open Term_index
 
@@ -32,32 +32,32 @@ let _ =
 
   let manual_index = {
     root = make_map [
-      (Pstring.get_term_symbol f1,
+      (Term_symbol.of_term f1,
         SubArray (
           index_array_node_make [
             make_map [
-              (Pstring.get_term_symbol x,
+              (Term_symbol.of_term x,
                 SubLeaf (TermSet.of_list [f5])
               );
-              (Pstring.get_term_symbol g1,
+              (Term_symbol.of_term g1,
                 SubArray (
                   index_array_node_make [
                     make_map [
-                      (Pstring.get_term_symbol x,
+                      (Term_symbol.of_term x,
                         SubLeaf (TermSet.of_list [f2; f4])
                       );
-                      (Pstring.get_term_symbol a,
+                      (Term_symbol.of_term a,
                         SubLeaf (TermSet.of_list [f1; f3])
                       );
                     ];
                     make_map [
-                      (Pstring.get_term_symbol b,
+                      (Term_symbol.of_term b,
                         SubLeaf (TermSet.of_list [f2; f3])
                       );
-                      (Pstring.get_term_symbol c,
+                      (Term_symbol.of_term c,
                         SubLeaf (TermSet.of_list [f4])
                       );
-                      (Pstring.get_term_symbol x,
+                      (Term_symbol.of_term x,
                         SubLeaf (TermSet.of_list [f1])
                       );
                     ];
@@ -66,13 +66,13 @@ let _ =
               );
             ];
             make_map [
-              (Pstring.get_term_symbol b,
+              (Term_symbol.of_term b,
                 SubLeaf (TermSet.of_list [f4])
               );
-              (Pstring.get_term_symbol c,
+              (Term_symbol.of_term c,
                 SubLeaf (TermSet.of_list [f1; f3])
               );
-              (Pstring.get_term_symbol x,
+              (Term_symbol.of_term x,
                 SubLeaf (TermSet.of_list [f2; f5])
               );
             ];
@@ -88,7 +88,7 @@ let _ =
   let print_insertions fold pstring =
     let index = fold.index in
     let term = fold.term in
-    Printf.printf "pstring: %s\n" (Pstring.string_of_pstring pstring);
+    Printf.printf "pstring: %s\n" (Pstring.string_of pstring);
     let new_index = term_index_add index pstring term in
     Printf.printf "procedural_index: %s\n" (string_of_term_index new_index);
     { fold with index = new_index }
@@ -96,7 +96,7 @@ let _ =
 
   let print_insertions_many current_index term =
     Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
-    let pstrings = Pstring.make_pstrings term in
+    let pstrings = Pstring.all_of_term term in
     let initial = { index = current_index; term = term } in
     let new_index = (List.fold_left print_insertions initial pstrings).index in
     Printf.printf "\n";
@@ -106,7 +106,7 @@ let _ =
   let print_deletions fold pstring =
     let index = fold.index in
     let term = fold.term in
-    Printf.printf "pstring: %s\n" (Pstring.string_of_pstring pstring);
+    Printf.printf "pstring: %s\n" (Pstring.string_of pstring);
     let new_index = term_index_remove index pstring term in
     Printf.printf "procedural_index: %s\n" (string_of_term_index new_index);
     { fold with index = new_index }
@@ -114,7 +114,7 @@ let _ =
 
   let print_deletions_many current_index term =
     Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
-    let pstrings = Pstring.make_pstrings term in
+    let pstrings = Pstring.all_of_term term in
     let initial = { index = current_index; term = term } in
     let new_index = (List.fold_left print_deletions initial pstrings).index in
     Printf.printf "\n";

@@ -49,7 +49,7 @@ module SparseArray = Map.Make(MapIndexKey)
 
 (* Module for Map node implementation *)
 module MapTermSymbolKey = struct
-  type t = Pstring.term_symbol
+  type t = Term_symbol.t
   let compare a b = compare a b
 end
 
@@ -70,6 +70,8 @@ and index_map_node = index_map_subnode SymbolKeyedMap.t
 type term_index = {
   root: index_map_node;
 }
+
+type t = term_index
 
 let rec string_repeat str count =
   match count with
@@ -107,13 +109,13 @@ let string_of_term_index (term_index: term_index) =
         "{\n" ^
         let f kvp =
           let (symbol, subnode) = kvp in
-          let symbol_str = Pstring.string_of_term_symbol symbol in
+          let symbol_str = Term_symbol.string_of symbol in
           let last_str = match subnode with
           | SubArray array_node -> rec_array array_node (depth + 1)
           | SubLeaf term_set -> string_of_term_set term_set
           in
           Printf.sprintf "%s%s: %s" indent_plus symbol_str last_str in
-        let kvp_sequence: (Pstring.term_symbol * index_map_subnode) Seq.t = SymbolKeyedMap.to_seq current in
+        let kvp_sequence: (Term_symbol.t * index_map_subnode) Seq.t = SymbolKeyedMap.to_seq current in
         let subnode_strings = List.of_seq (Seq.map f kvp_sequence) in
         let concatenated = String.concat ",\n" subnode_strings in
         concatenated ^ "\n" ^
@@ -139,7 +141,7 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
   let rec add_map (node: index_map_node) (pstring_i: int) =
     (* Printf.printf "> add_map %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
-    let target_symbol: Pstring.term_symbol = (Array.get pstring pstring_i).symbol in
+    let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
     (* Printf.printf ">> target_symbol: %s\n" (Pstring.string_of_term_symbol target_symbol); *)
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
     (* Printf.printf ">> pstring_at_end: %s\n" (if pstring_at_end then "true" else "false"); *)
@@ -199,7 +201,7 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
 let term_index_remove (term_index: term_index) (pstring: Pstring.t) (term: Factory.term) =
   let rec remove_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
-    let target_symbol: Pstring.term_symbol = (Array.get pstring pstring_i).symbol in
+    let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
     let update_symbol_value search = match search with
     | None -> assert (false); (* Nothing to remove *)
