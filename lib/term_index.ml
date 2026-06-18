@@ -32,12 +32,6 @@ module TermSet = Set.Make(IdComparableTerm)
 
 type term_set = TermSet.t
 
-let string_of_term_set (term_set: term_set) =
-  let term_list = TermSet.to_list term_set in
-  let string_of_term term = Factory.string_address_of term in
-  let strings = List.map string_of_term term_list in
-  Printf.sprintf "{ %s }" (String.concat ", " strings)
-
 (* Module for Array node implementation *)
 module MapIndexKey = struct
   type t = int
@@ -67,11 +61,15 @@ and index_map_subnode =
 (* Node that contains subnodes based on term symbol *)
 and index_map_node = index_map_subnode SymbolKeyedMap.t
 
-type term_index = {
+type t = {
   root: index_map_node;
 }
 
-type t = term_index
+let string_of_term_set (term_set: term_set) =
+  let term_list = TermSet.to_list term_set in
+  let string_of_term term = Factory.string_address_of term in
+  let strings = List.map string_of_term term_list in
+  Printf.sprintf "{ %s }" (String.concat ", " strings)
 
 let rec string_repeat str count =
   match count with
@@ -79,7 +77,7 @@ let rec string_repeat str count =
   | _ when 1 < count -> str ^ string_repeat str (count - 1)
   | _ -> ""
 
-let string_of_term_index (term_index: term_index) =
+let string_of (term_index: t) =
   let indent_unit = "    " in
   let rec rec_array (current: index_array_node) (depth: int) =
     let indent = string_repeat indent_unit depth in
@@ -135,9 +133,9 @@ let string_of_option_variant (x: 'a option) =
   | Some value -> "Some"
   | None -> "None"
 
-let term_index_empty = { root = SymbolKeyedMap.empty }
+let empty = { root = SymbolKeyedMap.empty }
 
-let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.term) =
+let add (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   let rec add_map (node: index_map_node) (pstring_i: int) =
     (* Printf.printf "> add_map %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
@@ -149,7 +147,7 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
       (* Printf.printf ">>> update_symbol_value: %s\n" (string_of_option_variant search); *)
       match search with
       | None -> (
-        (* Create the subnode and add it to the hash table *)
+        (* Create the subnode and add it to the map *)
         if pstring_at_end then (
           Some (SubLeaf (TermSet.singleton term))
         ) else (
@@ -175,7 +173,6 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
         )
       )
     in
-
     SymbolKeyedMap.update target_symbol update_symbol_value node
 
   and add_array (node: index_array_node) (pstring_i: int) =
@@ -187,18 +184,18 @@ let term_index_add (term_index: term_index) (pstring: Pstring.t) (term: Factory.
       If target exists -> add_map at that map
       If target does not exist -> insert at target_i an empty map and add_map
     *)
-    let update_index_value search = match search with
-    | None -> (
-      let new_submap = add_map SymbolKeyedMap.empty pstring_i in
-      Some new_submap
-    )
-    | Some found -> Some (add_map found pstring_i)
+    let update_index_value search =
+      let map_node = Option.value search ~default:SymbolKeyedMap.empty in
+      Some (add_map map_node pstring_i)
     in
     SparseArray.update target_i update_index_value node
   in
+  assert (0 < Array.length pstring); (* Pstring is empty *)
+  (* The first pstring symbol does not match its term's root symbol *)
+  assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   { term_index with root = add_map term_index.root 0 }
 
-let term_index_remove (term_index: term_index) (pstring: Pstring.t) (term: Factory.term) =
+let remove (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   let rec remove_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
@@ -234,7 +231,7 @@ let term_index_remove (term_index: term_index) (pstring: Pstring.t) (term: Facto
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_i: int = (Array.get pstring pstring_i).index in
     let update_index_value search = match search with
-    | None -> assert (false);
+    | None -> assert (false); (* Nothing to remove *)
     | Some subnode -> (
       let subnode_removed = remove_map subnode pstring_i in
       if (SymbolKeyedMap.cardinal subnode_removed) = 0 then
@@ -244,9 +241,143 @@ let term_index_remove (term_index: term_index) (pstring: Pstring.t) (term: Facto
     ) in
     SparseArray.update target_i update_index_value node
   in
+  assert (0 < Array.length pstring); (* Pstring is empty *)
+  (* The first pstring symbol does not match its term's root symbol *)
+  assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   { term_index with root = (remove_map term_index.root 0) }
 
-type index_fold = {
-  index : term_index;
-  term : Factory.term;
-}
+let add_term (term_index: t) (total_term: Factory.term) =
+  let rec add_map (node: index_map_node) (current_term: Factory.term) = (
+    let target_symbol = Term_symbol.of_term current_term in
+
+    let add_app subarray args =
+      let fold_f arr arg_i =
+        let (index, subterm) = arg_i in
+        let array_with_added = add_array arr subterm index in
+        array_with_added
+      in
+      let args_i = Seq.mapi (fun i x -> (i, x)) (List.to_seq args) in
+      let array_with_added = Seq.fold_left fold_f subarray args_i in
+      Some (SubArray array_with_added)
+    in
+
+    let update_symbol_value search = match search with
+    | None -> (
+      match current_term with
+      | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
+        (* New leaf with term *)
+        Some (SubLeaf (TermSet.singleton total_term))
+      )
+      | App (name, args) -> (
+        (* Array with args for each index *)
+        add_app SparseArray.empty args
+      )
+      | Bind (name, arg) -> (
+        let array_with_added = add_array SparseArray.empty arg 0 in
+        Some (SubArray array_with_added)
+      )
+    )
+    | Some subnode -> (
+      match subnode with
+      | SubArray subarray -> (
+        match current_term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
+          (assert (false);) (* Cannot be leaf when array exists *)
+        | App (name, args) -> (
+          add_app subarray args
+        )
+        | Bind (name, arg) -> (
+          let array_with_added = add_array subarray arg 0 in
+          Some (SubArray array_with_added)
+        )
+      )
+      | SubLeaf term_set -> (
+        match current_term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
+          Some (SubLeaf (TermSet.add total_term term_set))
+        )
+        | App (_, _) | Bind (_, _) ->
+          (assert (false);) (* Cannot be array when leaf exists *)
+      )
+    ) in
+    SymbolKeyedMap.update target_symbol update_symbol_value node
+  )
+  and add_array (node: index_array_node) (current_term: Factory.term) (target_i: int) = (
+    let update_index_value search = (
+      let map_node = Option.value search ~default: SymbolKeyedMap.empty in
+      Some (add_map map_node current_term)
+    ) in
+    SparseArray.update target_i update_index_value node
+  )
+  in
+  { term_index with root = (add_map term_index.root total_term) }
+
+let remove_term (term_index: t) (total_term: Factory.term) =
+  let rec remove_map (node: index_map_node) (current_term: Factory.term) = (
+    let target_symbol = Term_symbol.of_term current_term in
+    let update_symbol_value search = match search with
+    | None -> (assert (false);) (* Nothing to remove *)
+    | Some subnode -> (
+      match subnode with
+      | SubArray subarray -> (
+        match current_term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
+          (assert (false);) (* Cannot be leaf when array exists *)
+        | App (name, args) -> (
+          let fold_f arr arg_i =
+            let (index, subterm) = arg_i in
+            let array_with_removed = remove_array arr subterm index in
+            assert (
+              let arity = List.length args in
+              let remaining_cardinal = SparseArray.cardinal array_with_removed in
+              not ((remaining_cardinal = 0) && (index < arity - 1))
+            ); (* Array becomes empty before the end of removal (arity disparity) *)
+            array_with_removed
+          in
+          let args_i = Seq.mapi (fun i x -> (i, x)) (List.to_seq args) in
+          let array_with_removed = Seq.fold_left fold_f subarray args_i in
+          if (SparseArray.cardinal array_with_removed) = 0 then
+            None
+          else
+            Some (SubArray array_with_removed)
+        )
+        | Bind (name, arg) -> (
+          let array_with_removed = remove_array subarray arg 0 in
+          if (SparseArray.cardinal array_with_removed) = 0 then
+            None
+          else
+            Some (SubArray array_with_removed)
+        )
+      )
+      | SubLeaf term_set -> (
+        match current_term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
+          assert (TermSet.mem total_term term_set); (* term is present *)
+          let term_set_removed = TermSet.remove total_term term_set in
+          assert (not (TermSet.mem total_term term_set_removed)); (* term is removed *)
+          if (TermSet.cardinal term_set_removed) = 0 then
+            None (* Remove entry for target_symbol *)
+          else
+            Some (SubLeaf term_set_removed)
+        )
+        | App (_, _) | Bind (_, _) ->
+          (assert (false);) (* Cannot be array when leaf exists *)
+      )
+    ) in
+    SymbolKeyedMap.update target_symbol update_symbol_value node
+  )
+  and remove_array (node: index_array_node) (current_term: Factory.term) (target_i: int) = (
+    let update_index_value search = (
+      match search with
+      | None -> assert (false); (* Nothing to remove *)
+      | Some subnode -> (
+        let subnode_removed = remove_map subnode current_term in
+        if (SymbolKeyedMap.cardinal subnode_removed) = 0 then
+          None (* Remove entry for target_i *)
+        else
+          Some subnode_removed
+      )
+    ) in
+    SparseArray.update target_i update_index_value node
+  ) in
+  { term_index with root = (remove_map term_index.root total_term) }
