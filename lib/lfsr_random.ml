@@ -1,6 +1,6 @@
-type lfsr_state = int
+type t = int
 
-let choose_seed (x: unit) =
+let choose_seed () =
   Random.self_init ();
   Random.full_int (int_of_float (1e18))
 
@@ -12,3 +12,10 @@ let next n0 =
 
 let get_current state bound_max =
   abs (state mod bound_max)
+
+let get_current_raw state = state
+
+let get_current_raw_positive state = abs state
+
+let get_next state bound_max =
+  (get_current state bound_max, next state)
