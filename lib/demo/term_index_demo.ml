@@ -1,4 +1,4 @@
-(* pgeon/lib $ ocamlc factory.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml -o term_index_demo.exe *)
+(* pgeon/lib $ ocamlc utils.ml term.ml factory.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml -o term_index_demo.exe *)
 
 open Term_index
 

@@ -1,4 +1,4 @@
-(* pgeon/lib $ ocamlc factory.ml demo/factory_demo.ml -o factory_demo.exe *)
+(* pgeon/lib $ ocamlc term.ml factory.ml demo/factory_demo.ml -o factory_demo.exe *)
 
 open Factory
 

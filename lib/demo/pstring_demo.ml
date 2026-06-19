@@ -1,4 +1,4 @@
-(* pgeon/lib $ ocamlc factory.ml term_symbol.ml pstring.ml demo/pstring_demo.ml -o pstring_demo.exe *)
+(* pgeon/lib $ ocamlc term.ml factory.ml term_symbol.ml pstring.ml demo/pstring_demo.ml -o pstring_demo.exe *)
 
 module PstringSetElement = struct
   type t = Pstring.t
