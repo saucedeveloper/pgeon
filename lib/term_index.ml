@@ -71,15 +71,9 @@ let string_of_term_set (term_set: term_set) =
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
 
-let rec string_repeat str count =
-  match count with
-  | 1 -> str
-  | _ when 1 < count -> str ^ string_repeat str (count - 1)
-  | _ -> ""
-
 let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   let rec rec_array (current: index_array_node) (depth: int) =
-    let indent = string_repeat indent_pattern depth in
+    let indent = Utils.string_repeat indent_pattern depth in
     let indent_plus = indent ^ indent_pattern in
     (
       if (SparseArray.cardinal current) = 0 then
@@ -98,7 +92,7 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
       )
     )
   and rec_map (current: index_map_node) (depth: int) =
-    let indent = string_repeat indent_pattern depth in
+    let indent = Utils.string_repeat indent_pattern depth in
     let indent_plus = indent ^ indent_pattern in
       (if (SymbolKeyedMap.cardinal current) = 0 then
         "{}"
