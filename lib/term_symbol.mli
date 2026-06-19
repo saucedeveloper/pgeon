@@ -1,5 +1,5 @@
 (* Identifies the term variant without its contents *)
-type term_symbol_variant =
+type variant =
 | SymBvar
 | SymFvar
 | SymMvar
@@ -8,8 +8,10 @@ type term_symbol_variant =
 
 (* Identifies the term symbol uniquely *)
 type t = {
-  variant : term_symbol_variant;
+  variant : variant;
   name : Factory.name;
 }
+
+val string_of_variant : variant -> string
 
 val of_term : (Factory.term -> t)
