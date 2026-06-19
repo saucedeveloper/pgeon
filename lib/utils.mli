@@ -2,3 +2,5 @@
    occurence *)
 val perm : int -> 'a list -> 'a list list
 val diagonal : 'a Seq.t Seq.t -> 'a Seq.t
+
+val string_repeat : string -> int -> string

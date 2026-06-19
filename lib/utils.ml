@@ -42,3 +42,9 @@ let diagonal rows =
         | _ -> next outer' active'' values ())
   in
   next rows [] []
+
+let rec string_repeat str count =
+  match count with
+  | 1 -> str
+  | _ when 1 < count -> str ^ string_repeat str (count - 1)
+  | _ -> ""
