@@ -55,25 +55,25 @@ t = f(            (* ^.f *)
 *)
 
 (* Make all the pstrings / root-to-leaf traversals in `term` *)
-let all_of_term (term: Factory.term) =
+let all_of_term (term: Term.t) =
   let shared_path: node Dynarray.t = Dynarray.create () in
-  let rec recursive (term: Factory.term) (current_index: int) =
+  let rec recursive (term: Term.t) (current_index: int) =
     let created_node = { index = current_index; symbol = Term_symbol.of_term term } in
     Dynarray.add_last shared_path created_node;
     match term with
-    | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
+    | Term.Bvar _ | Term.Fvar _ | Term.Mvar _ | Term.App (_, []) -> (
       let resulting_path = Dynarray.to_array shared_path in
       Dynarray.remove_last shared_path;
       [resulting_path]
     )
-    | App (name, terms) -> (
+    | Term.App (name, terms) -> (
       let f index inner = recursive inner index in
       let created_paths_by_term = List.mapi f terms in
       let inner_created = List.concat created_paths_by_term in
       Dynarray.remove_last shared_path;
       inner_created
     )
-    | Bind (name, inner) -> (
+    | Term.Bind (name, inner) -> (
       let inner_created = recursive inner 0 in
       Dynarray.remove_last shared_path;
       inner_created
@@ -85,11 +85,11 @@ let all_of_term (term: Factory.term) =
 
 let get_subterm term index =
   match term with
-  | Factory.Bvar _ | Factory.Fvar _ | Factory.Mvar _ -> None
-  | Factory.App (name, terms) -> (
+  | Term.Bvar _ | Term.Fvar _ | Term.Mvar _ -> None
+  | Term.App (name, terms) -> (
     List.nth_opt terms index
   )
-  | Factory.Bind (name, term) -> (
+  | Term.Bind (name, term) -> (
     if index = 0 then (Some term) else None
   )
 
