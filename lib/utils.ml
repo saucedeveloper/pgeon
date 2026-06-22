@@ -48,3 +48,13 @@ let rec string_repeat str count =
   | 1 -> str
   | _ when 1 < count -> str ^ string_repeat str (count - 1)
   | _ -> ""
+
+let aggregate_self (transform: 'a -> 'a) (initial: 'a) (count: int) =
+  let rec recursive (iter_count: int) (accumulater: 'a) =
+    assert (iter_count <= count);
+    if iter_count = count then
+      accumulater
+    else
+      recursive (iter_count - 1) (transform accumulater)
+  in
+  recursive 0 initial
