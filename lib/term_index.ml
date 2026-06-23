@@ -1,3 +1,5 @@
+(* Immutable implementation of a term index *)
+
 (*
 Path index for
 t = f('x, exists.(P(?z)), 'y, P(?z))
@@ -128,7 +130,7 @@ let string_of_option_variant (x: 'a option) =
 
 let empty = { root = SymbolKeyedMap.empty }
 
-let add (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
+let add_pstring (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   let rec add_map (node: index_map_node) (pstring_i: int) =
     (* Printf.printf "> add_map %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
@@ -188,7 +190,7 @@ let add (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   { term_index with root = add_map term_index.root 0 }
 
-let remove (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
+let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   let rec remove_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
@@ -374,3 +376,84 @@ let remove_term (term_index: t) (total_term: Factory.term) =
     SparseArray.update target_i update_index_value node
   ) in
   { term_index with root = (remove_map term_index.root total_term) }
+
+let get_example_index factory0 =
+  let make_map (list: ('a * 'b) list) =
+    let sequence: ('a * 'b) Seq.t = List.to_seq list in
+    SymbolKeyedMap.of_seq sequence
+  in
+
+  let index_array_node_make (nodes: index_map_node list) =
+    let pair i x = (i, x) in
+    let sequence = Seq.mapi pair (List.to_seq nodes) in
+    SparseArray.of_seq sequence
+  in
+
+  let factory0 = Factory.empty in
+  let (a, factory1) = Factory.create_app "a" [] factory0 in
+  let (b, factory2) = Factory.create_app "b" [] factory1 in
+  let (c, factory3) = Factory.create_app "c" [] factory2 in
+  let (x, factory4) = Factory.create_fvar "*" factory3 in
+  let (g1, factory5) = Factory.create_app "g" [a; x] factory4 in
+  let (g2, factory6) = Factory.create_app "g" [x; b] factory5 in
+  let (g3, factory7) = Factory.create_app "g" [a; b] factory6 in
+  let (g4, factory8) = Factory.create_app "g" [x; c] factory7 in
+  let (f1, factory9) = Factory.create_app "f" [g1; c] factory8 in
+  let (f2, factory10) = Factory.create_app "f" [g2; x] factory9 in
+  let (f3, factory11) = Factory.create_app "f" [g3; c] factory10 in
+  let (f4, factory12) = Factory.create_app "f" [g4; b] factory11 in
+  let (f5, factory13) = Factory.create_app "f" [x; x] factory12 in
+  let terms = [f1; f2; f3; f4; f5] in
+
+  let manual_index = {
+    root = make_map [
+      (Term_symbol.of_term f1,
+        SubArray (
+          index_array_node_make [
+            make_map [
+              (Term_symbol.of_term x,
+                SubLeaf (TermSet.of_list [f5])
+              );
+              (Term_symbol.of_term g1,
+                SubArray (
+                  index_array_node_make [
+                    make_map [
+                      (Term_symbol.of_term x,
+                        SubLeaf (TermSet.of_list [f2; f4])
+                      );
+                      (Term_symbol.of_term a,
+                        SubLeaf (TermSet.of_list [f1; f3])
+                      );
+                    ];
+                    make_map [
+                      (Term_symbol.of_term b,
+                        SubLeaf (TermSet.of_list [f2; f3])
+                      );
+                      (Term_symbol.of_term c,
+                        SubLeaf (TermSet.of_list [f4])
+                      );
+                      (Term_symbol.of_term x,
+                        SubLeaf (TermSet.of_list [f1])
+                      );
+                    ];
+                  ]
+                )
+              );
+            ];
+            make_map [
+              (Term_symbol.of_term b,
+                SubLeaf (TermSet.of_list [f4])
+              );
+              (Term_symbol.of_term c,
+                SubLeaf (TermSet.of_list [f1; f3])
+              );
+              (Term_symbol.of_term x,
+                SubLeaf (TermSet.of_list [f2; f5])
+              );
+            ];
+          ];
+        )
+      )
+    ]
+  } in
+  (manual_index, terms, factory13)

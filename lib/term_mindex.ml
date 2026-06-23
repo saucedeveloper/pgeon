@@ -1,5 +1,3 @@
-(* pgeon/lib $ ocamlc utils.ml term.ml term_symbol.ml factory.ml term_mindex.ml -o term_mindex.exe *)
-
 (* Mutable implementation of a term index *)
 
 module IndexLeafTermSet = Hashtbl.Make(
@@ -414,13 +412,12 @@ let remove_term (term_index: t) (total_term: Term.t) =
   remove_map term_index.root total_term;
   ()
 
-let insertion_deletion_demo () =
+let get_example_index factory0 =
   let make_hashtbl (list: ('a * 'b) list) =
     let sequence: ('a * 'b) Seq.t = List.to_seq list in
     Hashtbl.of_seq sequence
   in
 
-  let factory0 = Factory.empty in
   let (a, factory1) = Factory.create_app "a" [] factory0 in
   let (b, factory2) = Factory.create_app "b" [] factory1 in
   let (c, factory3) = Factory.create_app "c" [] factory2 in
@@ -491,59 +488,4 @@ let insertion_deletion_demo () =
       )
     ]
   } in
-  Printf.printf "manual_index: %s\n\n" (string_of manual_index);
-
-  let procedural_index = create () in
-
-  (* let print_insertions arg =
-    let (pstring, term) = arg in
-    Printf.printf "pstring: %s\n" (Pstring.string_of pstring);
-    let () = insert_pstring procedural_index pstring term in
-    Printf.printf "procedural_index: %s\n" (string_of procedural_index);
-    ()
-  in *)
-
-  (* let print_insertions_many fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
-    let pstrings = Pstring.all_of_term fterm in
-    let pstrings_with_term = List.map (fun pstr -> (pstr, fterm)) pstrings in
-    List.iter print_insertions pstrings_with_term;
-    Printf.printf "\n";
-  in *)
-
-  let print_insertions_for_term fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
-    let () = insert_term procedural_index fterm in
-    Printf.printf "procedural_index: %s\n" (string_of procedural_index);
-    ()
-  in
-
-  (* let print_deletions arg =
-    let (pstring, term) = arg in
-    Printf.printf "pstring: %s\n" (Pstring.string_of pstring);
-    let () = remove_pstring procedural_index pstring term in
-    Printf.printf "procedural_index: %s\n" (string_of procedural_index);
-    ()
-  in *)
-
-  (* let print_deletions_many fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
-    let pstrings = Pstring.all_of_term fterm in
-    let pstrings_with_term = List.map (fun pstr -> (pstr, fterm)) pstrings in
-    List.iter print_deletions pstrings_with_term;
-    Printf.printf "\n";
-  in *)
-
-  let print_deletions_for_term fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
-    let () = remove_term procedural_index fterm in
-    Printf.printf "procedural_index: %s\n" (string_of procedural_index);
-    ()
-  in
-
-  List.iter print_insertions_for_term terms;
-  Printf.printf "\n\nDeletions:\n\n";
-  List.iter print_deletions_for_term terms;
-  ;;
-
-let _ = insertion_deletion_demo () ;;
+  (manual_index, terms, factory13)
