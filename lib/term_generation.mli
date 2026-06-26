@@ -72,6 +72,12 @@ module TermSet : sig
   val to_seq : t -> Term.t Seq.t
 end
 
+val letter_thresholds : int array
+val consonant_thresholds : int array
+val vowel_thresholds : int array
+
+val random_letter_index : Lfsr_random.t -> int array -> (int * Lfsr_random.t)
+
 val string_of_weights : variant_weights -> string
 
 val make_variant_weights : float -> float -> float -> float -> float -> variant_weights
