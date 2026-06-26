@@ -1,12 +1,16 @@
-(* Experiment to test whether objects
-are copied in recursive types *)
+(* Experiment to test whether objects are copied
+in recursive types. Spoiler: they are not. *)
+
+(* pgeon/lib $
+ocamlc -o recursive_experiment.exe demo/recursive_experiment.ml
+*)
 
 type llist =
 | Nil
 | Next of string * llist
 
 let _ =
-  let run = false in
+  let run = true in
   if not run then () else
   let persons = Next ("joe", Nil) in
   let persons_b1 = Next ("jack", persons) in

@@ -1,4 +1,12 @@
-(* pgeon/lib $ ocamlc utils.ml term.ml factory.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml -o term_index_demo.exe *)
+(* Test the insertion of terms in the immutable index.
+A version based on p-strings is commented out *)
+
+(* pgeon/lib $
+ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli term_index.mli
+*)
+(* pgeon/lib $
+ocamlc -o term_index_demo.exe utils.ml term.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml
+*)
 
 type index_fold = {
   index : Term_index.t;
@@ -6,7 +14,7 @@ type index_fold = {
 }
 
 let insertion_deletion_demo () =
-  let factory0 = Factory.empty in
+  let factory0 = Term.empty_factory in
 
   let (manual_index, terms, factory1) = Term_index.get_example_index factory0 in
 
@@ -14,6 +22,7 @@ let insertion_deletion_demo () =
 
   let procedural_index1 = Term_index.empty in
 
+  (* Based on p-strings *)
   (* let print_insertions fold pstring =
     let index = fold.index in
     let term = fold.term in
@@ -24,7 +33,7 @@ let insertion_deletion_demo () =
   in *)
 
   let print_insertions_many current_index term =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
+    Printf.printf "\nterm: %s (%s)\n" (Term.string_of term) (Utils.string_address_of term);
     (* let pstrings = Pstring.all_of_term term in *)
     (* let initial = { index = current_index; term = term } in *)
     let new_index = Term_index.add_term current_index term in
@@ -34,6 +43,7 @@ let insertion_deletion_demo () =
     new_index
   in
 
+  (* Based on p-strings *)
   (* let print_deletions fold pstring =
     let index = fold.index in
     let term = fold.term in
@@ -44,7 +54,7 @@ let insertion_deletion_demo () =
   in *)
 
   let print_deletions_many current_index term =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term term) (Factory.string_address_of term);
+    Printf.printf "\nterm: %s (%s)\n" (Term.string_of term) (Utils.string_address_of term);
     (* let pstrings = Pstring.all_of_term term in
     let initial = { index = current_index; term = term } in *)
     let new_index = Term_index.remove_term current_index term in

@@ -1,25 +1,20 @@
-(* pgeon/lib $ ocamlc term.ml factory.ml demo/factory_demo.ml -o factory_demo.exe *)
+(* Tests the reutilization of structurally identical terms *)
 
-open Factory
+(* pgeon/lib $
+ocamlc -c utils.mli term.mli
+*)
+(* pgeon/lib $
+ocamlc -o factory_demo.exe utils.ml term.ml demo/factory_demo.ml
+*)
+
+open Utils
+open Term
 
 let _ =
   let run = true in
   if not run then () else
-  (* let a_or_b = App("or", [ref (Fvar "a"); ref (Fvar "b")]) in
-  for i = 0 to (Array.length Sys.argv) - 1 do
-    Printf.printf "argv[%d] = %s\n" (i) Sys.argv.(i);
-  done;
-  Printf.printf "a_or_b: %s" (string_of_term a_or_b);; *)
-  (*
-  let arg_a = ref (Bind ("exists", p)) in
-  let arg_b = ref (Bind ("forall", e)) in
-  let comparison = term_compare arg_a arg_b in
-  Printf.printf "arg_a: %s\n" (string_of_term !arg_a);
-  Printf.printf "arg_b: %s\n" (string_of_term !arg_b);
-  Printf.printf "comparison: %s\n" (string_of_int comparison);
-  *)
 
-  let factory1 = empty in
+  let factory1 = empty_factory in
   let (p, factory2) = create_mvar "p" factory1 in
   let (e, factory3) = create_mvar "e" factory2 in
   let (_, factory4) = create_mvar "p" factory3 in

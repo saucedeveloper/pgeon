@@ -1,20 +1,19 @@
-(* pgeon/lib $ ocamlc utils.ml demo/lfsr_pseudo_random.ml -o lfsr_pseudo_random.exe *)
+(* Tests that the linear feedback shift register algorithm produces
+a uniform dirstribution when applying modulo n on the output *)
+
+(* pgeon/lib $
+ocamlc -c utils.mli
+*)
+(* pgeon/lib $
+ocamlc -o lfsr_pseudo_random.exe utils.ml lfsr_random.ml demo/lfsr_pseudo_random.ml
+*)
 
 module MultiSet = Map.Make(Int)
-
-let lfsr_next n0 =
-  let n1 = n0 lxor (n0 lsr 7) in
-  let n2 = n1 lxor (n1 lsl 9) in
-  let n3 = n2 lxor (n2 lsr 13) in
-  n3
-
-let lfsr_normalize n max =
-  abs (n mod max)
 
 let _ =
   let range_size = 32 in
   let generation_count = range_size * 4096 in
-  let seed: int = Lfsr_random.choose_seed () in (* 1 *)
+  let seed = Lfsr_random.choose_seed () in (* 1 *)
   let bar_length = 40 in
 
   let table = MultiSet.empty in
@@ -26,7 +25,7 @@ let _ =
     MultiSet.update number update_f table
   in
   let range = List.init generation_count (fun x -> x + 1) in
-  let compund_number (acc: int MultiSet.t * int) (arg: int) =
+  let compund_number (acc: int MultiSet.t * Lfsr_random.t) (arg: int) =
     let (table, number) = acc in
     let result = Lfsr_random.next number in
     let kept = Lfsr_random.get_current result range_size in
