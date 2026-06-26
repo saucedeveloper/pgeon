@@ -122,7 +122,7 @@ let%test _ =
   ) in *)
   (* Compiler error: Unbound constructor Bvar (because node ref) *)
 
-  (* let variant_index (term: Factory.term) = (
+  (* let variant_index (term: Term.t) = (
     match !term with
     | Bvar index -> 0
     | Fvar name -> 1
@@ -130,7 +130,7 @@ let%test _ =
     | App (name, terms) -> 3
     | Bind (name, _term) -> 4
   ) in *)
-  (* Compiler error: The value term has type Factory.term
+  (* Compiler error: The value term has type Term.t
     but an expression was expected of type 'a ref *)
 
   let term_to_int term = (
