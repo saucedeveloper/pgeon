@@ -8,6 +8,43 @@ type t = private
   | App of name * t list
   | Bind of name * t
 
+type factory
+
+type t_alias = t
+
+module FactoryTerm : sig
+  type t = t_alias
+  val compare : t -> t -> int
+end
+
+val empty_factory : factory
+
+(** Factory to string recursively *)
+val string_of_factory : factory -> string
+
+(** Factory to string with partial addresses *)
+val debug_string_of_factory : ?address_digits:int -> factory -> string
+
+val factory_cardinal : factory -> int
+
+val create_bvar : int -> factory -> (t * factory)
+val create_fvar : name -> factory -> (t * factory)
+val create_mvar : name -> factory -> (t * factory)
+val create_app  : name -> t list -> factory -> (t * factory)
+val create_bind : name -> t -> factory -> (t * factory)
+
+(** Term to string recursively *)
+val string_of : t -> string
+
+(** Name/identifier of term (not recursive) *)
+val identifier_of : t -> string
+
+(** Term comparison: a - b *)
+val term_compare : t -> t -> int
+
+(** Term equality comparison: a = b assuming they are from the same factory *)
+val term_equal : t -> t -> bool
+
 val var_open : t -> t -> t
 
 type substitution = (name * t) list
