@@ -1,8 +1,11 @@
+(* Compares the performance of term insertion and deletion
+in mutable and immutable indexes *)
+
 (* pgeon/lib $
 ocamlc -c utils.mli term.mli term_symbol.mli lfsr_random.mli term_generation.mli pstring.mli term_index.mli term_mindex.mli
 *)
 (* pgeon/lib $
-ocamlc utils.ml term.ml term_symbol.ml lfsr_random.ml term_generation.ml pstring.ml term_index.ml term_mindex.ml demo/term_xindex_performance_demo.ml -o term_xindex_performance_demo.exe
+ocamlc -o term_xindex_performance_demo.exe utils.ml term.ml term_symbol.ml lfsr_random.ml term_generation.ml pstring.ml term_index.ml term_mindex.ml demo/term_xindex_performance_demo.ml
 *)
 
 module TermSet = Term_generation.TermSet
@@ -39,7 +42,7 @@ let _ =
   (* let seed = Lfsr_random.choose_seed () in *)
   let seed = Lfsr_random.state_of_int 396897422814058137 in
   Printf.printf "seed = %s\n" (Lfsr_random.string_of_state seed); 
-  let term_count = 50000 in
+  let term_count = (* 5 *)10000 in
   let name_max_length = 20 in
   let max_arity = 4 in
   let next_state = Lfsr_random.next seed in
@@ -103,5 +106,20 @@ let _ =
   Printf.printf "Mutable deletion: %fs\n%!" (time_end_mut -. time_start_mut);
 
   let time_end_operation = Sys.time () in
-  Printf.printf "\nOperations total: %fs\n" (time_end_operation -. time_start_operation);
+  Printf.printf "\nOperations total: %fs\n%!" (time_end_operation -. time_start_operation);
+
+  let () = if not (Term_index.is_empty index_removed) then (
+    Printf.printf "Term index did not end up empty\n";
+    Printf.printf "%s\n" (Term_index.string_of index);
+    ()
+  ) else ()
+  in
+
+  let () = if not (Term_mindex.is_empty mindex) then (
+    Printf.printf "Term mindex did not end up empty\n";
+    Printf.printf "%s\n" (Term_mindex.string_of mindex);
+    ()
+  ) else ()
+  in
+  ()
   ;;

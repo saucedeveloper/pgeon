@@ -1,7 +1,14 @@
-(* pgeon/lib $ ocamlc utils.ml term.ml term_symbol.ml factory.ml pstring.ml term_mindex.ml demo/term_mindex_demo.ml -o term_mindex_demo.exe *)
+(* Test the insertion of terms in the mutable index *)
+
+(* pgeon/lib $
+ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli term_mindex.mli
+*)
+(* pgeon/lib $
+ocamlc -o term_mindex_demo.exe utils.ml term.ml term_symbol.ml pstring.ml term_mindex.ml demo/term_mindex_demo.ml
+*)
 
 let insertion_deletion_demo () =
-  let factory0 = Factory.empty in
+  let factory0 = Term.empty_factory in
 
   let (manual_index, terms, factory1) = Term_mindex.get_example_index factory0 in
 
@@ -18,7 +25,7 @@ let insertion_deletion_demo () =
   in *)
 
   (* let print_insertions_many fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
+    Printf.printf "\nterm: %s (%s)\n" (Term.string_of fterm) (Utils.string_address_of fterm);
     let pstrings = Pstring.all_of_term fterm in
     let pstrings_with_term = List.map (fun pstr -> (pstr, fterm)) pstrings in
     List.iter print_insertions pstrings_with_term;
@@ -26,7 +33,7 @@ let insertion_deletion_demo () =
   in *)
 
   let print_insertions_for_term fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
+    Printf.printf "\nterm: %s (%s)\n" (Term.string_of fterm) (Utils.string_address_of fterm);
     let () = Term_mindex.insert_term procedural_index fterm in
     Printf.printf "procedural_index: %s\n" (Term_mindex.string_of procedural_index);
     ()
@@ -41,7 +48,7 @@ let insertion_deletion_demo () =
   in *)
 
   (* let print_deletions_many fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
+    Printf.printf "\nterm: %s (%s)\n" (Term.string_of fterm) (Utils.string_address_of fterm);
     let pstrings = Pstring.all_of_term fterm in
     let pstrings_with_term = List.map (fun pstr -> (pstr, fterm)) pstrings in
     List.iter print_deletions pstrings_with_term;
@@ -49,7 +56,7 @@ let insertion_deletion_demo () =
   in *)
 
   let print_deletions_for_term fterm =
-    Printf.printf "\nterm: %s (%s)\n" (Factory.string_of_term fterm) (Factory.string_address_of fterm);
+    Printf.printf "\nterm: %s (%s)\n" (Term.string_of fterm) (Utils.string_address_of fterm);
     let () = Term_mindex.remove_term procedural_index fterm in
     Printf.printf "procedural_index: %s\n" (Term_mindex.string_of procedural_index);
     ()
