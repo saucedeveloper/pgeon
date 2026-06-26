@@ -9,9 +9,11 @@ type variant =
 (* Identifies the term symbol uniquely *)
 type t = {
   variant : variant;
-  name : Factory.name;
+  name : Term.name;
 }
 
 val string_of_variant : variant -> string
 
-val of_term : (Factory.term -> t)
+val of_term : Term.t -> t
+
+val string_of : t -> string
