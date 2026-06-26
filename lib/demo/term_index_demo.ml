@@ -2,7 +2,7 @@
 
 type index_fold = {
   index : Term_index.t;
-  term : Factory.term;
+  term : Term.t;
 }
 
 let insertion_deletion_demo () =
