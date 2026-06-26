@@ -55,6 +55,44 @@ let aggregate_self (transform: 'a -> 'a) (initial: 'a) (count: int) =
     if iter_count = count then
       accumulater
     else
-      recursive (iter_count - 1) (transform accumulater)
+      recursive (iter_count + 1) (transform accumulater)
   in
   recursive 0 initial
+
+let aggregate_self_i (transform: int -> 'a -> 'a) (initial: 'a) (count: int) =
+  let rec recursive (iter_count: int) (accumulater: 'a) =
+    assert (iter_count <= count);
+    if iter_count = count then
+      accumulater
+    else
+      recursive (iter_count + 1) (transform iter_count accumulater)
+  in
+  recursive 0 initial
+
+let aggregate_self_until (transform: int -> 'a -> ('a option)) (initial: 'a) (count: int) =
+  let rec recursive (iter_count: int) (accumulater: 'a) =
+    assert (iter_count <= count);
+    if iter_count = count then
+      accumulater
+    else (
+      let new_accumulater = transform iter_count accumulater in
+      match new_accumulater with
+      | None -> accumulater
+      | Some new_acc -> recursive (iter_count + 1) new_acc
+    )
+  in
+  recursive 0 initial
+
+(* Address / unique id for x for printing *)
+let address_of x = 2 * (Obj.magic x) (* / 2 *)
+
+let string_address_of ?(n=4) x =
+  let s = string_of_int (address_of x) in
+  let len_s = String.length s in
+  let start = len_s - n in
+  if start <= 0 then
+    s
+  else
+    String.sub s start n
+
+let string_of_bool b = if b then "true" else "false"

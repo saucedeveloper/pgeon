@@ -7,4 +7,14 @@ val string_repeat : string -> int -> string
 
 (* List.fold_left without the need for a list of elements,
    similar to a pure for loop *)
-val aggregate_self : ('a -> 'a) -> 'a -> count: int -> 'a
+val aggregate_self : ('a -> 'a) -> 'a -> int -> 'a
+
+val aggregate_self_i : (int -> 'a -> 'a) -> 'a -> int -> 'a
+
+val aggregate_self_until : (int -> 'a -> ('a option)) -> 'a -> int -> 'a
+
+val address_of : 'a -> int
+
+val string_address_of : ?n:int -> 'a -> string
+
+val string_of_bool : bool -> string

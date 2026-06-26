@@ -1,12 +1,5 @@
 type term = Term.t
 
-(* Address / unique id for x for printing *)
-let address_of x = 2 * (Obj.magic x) / 2
-
-let string_address_of ?(n=4) x =
-  let s = string_of_int (address_of x) in
-  String.sub s (String.length s - n) n
-
 let term_compare (a: term) (b: term) = compare a b
 
 let term_equal a b = (a == b)
@@ -19,8 +12,7 @@ end
 
 module FactoryTermSet = Set.Make(FactoryTerm)
 
-(* Factory is a set of terms using term_compare to tell them apart *)
-type t = {
+type factory = {
   set : FactoryTermSet.t;
 }
 
