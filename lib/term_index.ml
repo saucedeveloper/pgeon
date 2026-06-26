@@ -25,8 +25,8 @@ t = f('x, exists.(P(?z)), 'y, P(?z))
 
 (* Module for Set implementation *)
 module IdComparableTerm = struct
-  type t = Factory.term
-  let compare a b = compare (Factory.address_of a) (Factory.address_of b)
+  type t = Term.t
+  let compare a b = Stdlib.compare a b
 end
 
 (* Set of terms on a leaf of the index *)
@@ -67,9 +67,15 @@ type t = {
   root: index_map_node;
 }
 
-let string_of_term_set (term_set: term_set) =
+let string_of_term_set ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
-  let string_of_term term = Factory.string_address_of term in
+  let string_of_term term = Utils.string_address_of ~n:n term in
+  let strings = List.map string_of_term term_list in
+  Printf.sprintf "{ %s }" (String.concat ", " strings)
+
+let string_of_term_set_full ?(n=4) (term_set: term_set) =
+  let term_list = TermSet.to_list term_set in
+  let string_of_term term = (Term.string_of term) ^ "{@" ^ (Utils.string_address_of ~n:n term) ^ "}" in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
 
@@ -130,7 +136,7 @@ let string_of_option_variant (x: 'a option) =
 
 let empty = { root = SymbolKeyedMap.empty }
 
-let add_pstring (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
+let add_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec add_map (node: index_map_node) (pstring_i: int) =
     (* Printf.printf "> add_map %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
@@ -190,7 +196,7 @@ let add_pstring (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   { term_index with root = add_map term_index.root 0 }
 
-let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
+let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec remove_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
@@ -241,8 +247,8 @@ let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Factory.term) =
   assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   { term_index with root = (remove_map term_index.root 0) }
 
-let add_term (term_index: t) (total_term: Factory.term) =
-  let rec add_map (node: index_map_node) (current_term: Factory.term) = (
+let add_term (term_index: t) (total_term: Term.t) =
+  let rec add_map (node: index_map_node) (current_term: Term.t) = (
     let target_symbol = Term_symbol.of_term current_term in
 
     let add_app subarray args =
@@ -297,7 +303,7 @@ let add_term (term_index: t) (total_term: Factory.term) =
     ) in
     SymbolKeyedMap.update target_symbol update_symbol_value node
   )
-  and add_array (node: index_array_node) (current_term: Factory.term) (target_i: int) = (
+  and add_array (node: index_array_node) (current_term: Term.t) (target_i: int) = (
     let update_index_value search = (
       let map_node = Option.value search ~default: SymbolKeyedMap.empty in
       Some (add_map map_node current_term)
@@ -307,8 +313,8 @@ let add_term (term_index: t) (total_term: Factory.term) =
   in
   { term_index with root = (add_map term_index.root total_term) }
 
-let remove_term (term_index: t) (total_term: Factory.term) =
-  let rec remove_map (node: index_map_node) (current_term: Factory.term) = (
+let remove_term (term_index: t) (total_term: Term.t) =
+  let rec remove_map (node: index_map_node) (current_term: Term.t) = (
     let target_symbol = Term_symbol.of_term current_term in
     let update_symbol_value search = match search with
     | None -> (assert (false);) (* Nothing to remove *)
@@ -361,7 +367,7 @@ let remove_term (term_index: t) (total_term: Factory.term) =
     ) in
     SymbolKeyedMap.update target_symbol update_symbol_value node
   )
-  and remove_array (node: index_array_node) (current_term: Factory.term) (target_i: int) = (
+  and remove_array (node: index_array_node) (current_term: Term.t) (target_i: int) = (
     let update_index_value search = (
       match search with
       | None -> assert (false); (* Nothing to remove *)
@@ -389,20 +395,20 @@ let get_example_index factory0 =
     SparseArray.of_seq sequence
   in
 
-  let factory0 = Factory.empty in
-  let (a, factory1) = Factory.create_app "a" [] factory0 in
-  let (b, factory2) = Factory.create_app "b" [] factory1 in
-  let (c, factory3) = Factory.create_app "c" [] factory2 in
-  let (x, factory4) = Factory.create_fvar "*" factory3 in
-  let (g1, factory5) = Factory.create_app "g" [a; x] factory4 in
-  let (g2, factory6) = Factory.create_app "g" [x; b] factory5 in
-  let (g3, factory7) = Factory.create_app "g" [a; b] factory6 in
-  let (g4, factory8) = Factory.create_app "g" [x; c] factory7 in
-  let (f1, factory9) = Factory.create_app "f" [g1; c] factory8 in
-  let (f2, factory10) = Factory.create_app "f" [g2; x] factory9 in
-  let (f3, factory11) = Factory.create_app "f" [g3; c] factory10 in
-  let (f4, factory12) = Factory.create_app "f" [g4; b] factory11 in
-  let (f5, factory13) = Factory.create_app "f" [x; x] factory12 in
+  let factory0 = Term.empty_factory in
+  let (a, factory1) = Term.create_app "a" [] factory0 in
+  let (b, factory2) = Term.create_app "b" [] factory1 in
+  let (c, factory3) = Term.create_app "c" [] factory2 in
+  let (x, factory4) = Term.create_fvar "*" factory3 in
+  let (g1, factory5) = Term.create_app "g" [a; x] factory4 in
+  let (g2, factory6) = Term.create_app "g" [x; b] factory5 in
+  let (g3, factory7) = Term.create_app "g" [a; b] factory6 in
+  let (g4, factory8) = Term.create_app "g" [x; c] factory7 in
+  let (f1, factory9) = Term.create_app "f" [g1; c] factory8 in
+  let (f2, factory10) = Term.create_app "f" [g2; x] factory9 in
+  let (f3, factory11) = Term.create_app "f" [g3; c] factory10 in
+  let (f4, factory12) = Term.create_app "f" [g4; b] factory11 in
+  let (f5, factory13) = Term.create_app "f" [x; x] factory12 in
   let terms = [f1; f2; f3; f4; f5] in
 
   let manual_index = {

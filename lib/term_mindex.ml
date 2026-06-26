@@ -4,8 +4,8 @@ module IndexLeafTermSet = Hashtbl.Make(
   struct
     (* Key type *)
     type t = Term.t
-    let equal = Factory.term_equal
-    let hash = Factory.address_of
+    let equal = Term.term_equal
+    let hash = Hashtbl.hash
   end
 )
 
@@ -33,7 +33,7 @@ let term_set_mem (term_set: term_set) (term: Term.t) =
 
 let string_of_term_set (term_set: term_set) =
   let term_list = List.of_seq (IndexLeafTermSet.to_seq_keys term_set) in
-  let string_of_term term = Factory.string_address_of term in
+  let string_of_term term = Utils.string_address_of term in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
 
@@ -337,7 +337,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
   ()
 
 let remove_term (term_index: t) (total_term: Term.t) =
-  let rec remove_map (node: map_node) (current_term: Factory.term) = (
+  let rec remove_map (node: map_node) (current_term: Term.t) = (
     let target_symbol = Term_symbol.of_term current_term in
     let subnode_search = Hashtbl.find_opt node target_symbol in
 
@@ -394,7 +394,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
       )
     )
   )
-  and remove_array (node: array_node) (current_term: Factory.term) (target_i: int) = (
+  and remove_array (node: array_node) (current_term: Term.t) (target_i: int) = (
     let target_search = Hashtbl.find_opt node target_i in
     match target_search with
     | None -> (assert (false);) (* Nothing to remove *)
@@ -418,19 +418,19 @@ let get_example_index factory0 =
     Hashtbl.of_seq sequence
   in
 
-  let (a, factory1) = Factory.create_app "a" [] factory0 in
-  let (b, factory2) = Factory.create_app "b" [] factory1 in
-  let (c, factory3) = Factory.create_app "c" [] factory2 in
-  let (x, factory4) = Factory.create_fvar "*" factory3 in
-  let (g1, factory5) = Factory.create_app "g" [a; x] factory4 in
-  let (g2, factory6) = Factory.create_app "g" [x; b] factory5 in
-  let (g3, factory7) = Factory.create_app "g" [a; b] factory6 in
-  let (g4, factory8) = Factory.create_app "g" [x; c] factory7 in
-  let (f1, factory9) = Factory.create_app "f" [g1; c] factory8 in
-  let (f2, factory10) = Factory.create_app "f" [g2; x] factory9 in
-  let (f3, factory11) = Factory.create_app "f" [g3; c] factory10 in
-  let (f4, factory12) = Factory.create_app "f" [g4; b] factory11 in
-  let (f5, factory13) = Factory.create_app "f" [x; x] factory12 in
+  let (a, factory1) = Term.create_app "a" [] factory0 in
+  let (b, factory2) = Term.create_app "b" [] factory1 in
+  let (c, factory3) = Term.create_app "c" [] factory2 in
+  let (x, factory4) = Term.create_fvar "*" factory3 in
+  let (g1, factory5) = Term.create_app "g" [a; x] factory4 in
+  let (g2, factory6) = Term.create_app "g" [x; b] factory5 in
+  let (g3, factory7) = Term.create_app "g" [a; b] factory6 in
+  let (g4, factory8) = Term.create_app "g" [x; c] factory7 in
+  let (f1, factory9) = Term.create_app "f" [g1; c] factory8 in
+  let (f2, factory10) = Term.create_app "f" [g2; x] factory9 in
+  let (f3, factory11) = Term.create_app "f" [g3; c] factory10 in
+  let (f4, factory12) = Term.create_app "f" [g4; b] factory11 in
+  let (f5, factory13) = Term.create_app "f" [x; x] factory12 in
   let terms = [f1; f2; f3; f4; f5] in
   (* Printf.printf "term: %s\n" (string_of_term a_f);
   let pstrings = Pstring.all_of_term a_f in
