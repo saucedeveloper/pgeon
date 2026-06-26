@@ -6,6 +6,8 @@ val string_of : ?indent_pattern:string -> ?indent_level:int -> t -> string
 
 val empty : t
 
+val is_empty : t -> bool
+
 (* Add a pstring that corresponds to a term to the index *)
 val add_pstring : t -> Pstring.t -> Term.t -> t
 

@@ -130,17 +130,14 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
 let create ?(capacity=8) () =
   { root = Hashtbl.create capacity }
 
+let is_empty index = 0 = Hashtbl.length index.root
+
 let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec insert_map (node: map_node) (pstring_i: int) =
-    (* Printf.printf "> insert_map %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
-    (* Printf.printf ">> target_symbol: %s\n" (string_of_term_symbol target_symbol); *)
     let found_subnode = Hashtbl.find_opt node target_symbol in
-    (* Printf.printf ">> found_subnode: %s\n" *)
-      (* (debug_string_of_option (fun (node) -> match node with | SubArray _ -> "SubArray" | SubLeaf _ -> "SubLeaf") found_subnode); *)
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
-    (* Printf.printf ">> pstring_at_end: %s\n" (if pstring_at_end then "true" else "false"); *)
     match found_subnode with
     | None -> (
       (* Create the subnode and add it to the hash table *)
@@ -152,8 +149,9 @@ let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
         let new_subarray = array_node_create () in
         let new_subnode = SubArray (new_subarray) in
         Hashtbl.add node target_symbol new_subnode;
-        (* Printf.printf ">> new_subarray\n"; *)
-        insert_array new_subarray (pstring_i + 1)
+        insert_array new_subarray (pstring_i + 1);
+        assert (0 < Hashtbl.length new_subarray); (* New subarray is not empty *)
+        ()
       )
     )
     | Some subnode -> (
@@ -169,29 +167,28 @@ let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
         insert_array subarray (pstring_i + 1)
       )
       | SubLeaf term_set -> (
+        assert (not (term_set_mem term_set term)); (* term is not already in *)
         assert (pstring_at_end);
+        assert (term_set_mem term_set term); (* term is added *)
         term_set_add term_set term;
         ()
       )
     )
   and insert_array (node: array_node) (pstring_i: int) =
-    (* Printf.printf "> insert_array %d\n" pstring_i; *)
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_i: int = (Array.get pstring pstring_i).index in
-    (* Printf.printf ">> target_i %d\n" target_i; *)
     (*
       If target exists -> insert_map at that map
       If target does not exist -> insert at target_i an empty map and insert_map
     *)
     let target_search = Hashtbl.find_opt node target_i in
-    (* let target_exists = match target_search with Some _ -> true | None -> false in *)
-    (* Printf.printf ">> target_exists %s\n" (if target_exists then "true" else "false"); *)
     match target_search with
     | Some target -> insert_map target pstring_i
     | None -> (
       let new_submap = map_node_create () in
       array_node_replace node target_i new_submap;
-      insert_map new_submap pstring_i
+      insert_map new_submap pstring_i;
+      assert (0 < Hashtbl.length new_submap); (* New map is not empty *)
     )
   in
   insert_map term_index.root 0
@@ -203,10 +200,8 @@ let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
     let found_subnode = Hashtbl.find_opt node target_symbol in
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
     match found_subnode with
-    | None -> (
-      (* Nothing to delete *)
-      assert (false);
-    )
+    | None ->
+      (assert (false);) (* Nothing to delete *)
     | Some subnode -> (
       (* If array, assert pstring not at end, remove_array of the subarray *)
       (* If leaf, assert pstring at end, remove from set, possibly deleting the leaf if becomes empty *)
@@ -237,9 +232,7 @@ let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_i: int = (Array.get pstring pstring_i).index in
     let target_search = Hashtbl.find_opt node target_i in
-    (*
-    If submap exists remove_map and if |map| = 0 remove its entry
-    *)
+    (* If submap exists remove_map and if |map| = 0 remove its entry *)
     match target_search with
     | Some subnode -> (
       remove_map subnode pstring_i;
@@ -249,10 +242,7 @@ let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
       else
         ()
     )
-    | None -> (
-      let _ = assert (false) in (* Nothing to remove *)
-      ()
-    )
+    | None -> (assert (false);)
   in
   remove_map term_index.root 0
 
@@ -273,17 +263,19 @@ let insert_term (term_index: t) (total_term: Term.t) =
         (* Array with args for each index *)
         let subarray = array_node_create () in
         let subnode = SubArray subarray in
-        let insert_subterm (i: int) (arg: Term.t) =
-          insert_array subarray arg i;
+        let insert_subterm (i: int) (term: Term.t) =
+          insert_array subarray term i;
           ()
         in
         List.iteri insert_subterm args;
+        assert ((List.length args) = (Hashtbl.length subarray));
         Hashtbl.add node target_symbol subnode;
         ()
       )
       | Bind (name, arg) -> (
         let subarray = array_node_create () in
         insert_array subarray arg 0;
+        assert ((Hashtbl.length subarray) = 1);
         let subnode = SubArray subarray in
         Hashtbl.add node target_symbol subnode;
         ()
@@ -296,8 +288,8 @@ let insert_term (term_index: t) (total_term: Term.t) =
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
           (assert (false);) (* Cannot be leaf when array exists *)
         | App (name, args) -> (
-          let insert_subterm i arg =
-            insert_array subarray arg i;
+          let insert_subterm (i: int) (term: Term.t) =
+            insert_array subarray term i;
             ()
           in
           List.iteri insert_subterm args;
@@ -311,7 +303,9 @@ let insert_term (term_index: t) (total_term: Term.t) =
       | SubLeaf term_set -> (
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
+          assert (not (term_set_mem term_set total_term)); (* term is not already in *)
           term_set_add term_set total_term;
+          assert (term_set_mem term_set total_term); (* term is added *)
           ()
         )
         | App (_, _) | Bind (_, _) ->
@@ -324,7 +318,12 @@ let insert_term (term_index: t) (total_term: Term.t) =
     match target_search with
     | None -> (
       let map_node = map_node_create () in
+      let length_before = Hashtbl.length map_node in
       insert_map map_node current_term;
+      let length_after = Hashtbl.length map_node in
+      (* If the current map is empty, the new one is not *)
+      assert (not ((0 < length_before)
+                && (0 < length_after)));
       Hashtbl.add node target_i map_node;
       ()
     )

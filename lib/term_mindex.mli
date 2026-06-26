@@ -6,6 +6,8 @@ val string_of : ?indent_pattern:string -> ?indent_level:int -> t -> string
 
 val create : ?capacity:int -> unit -> t
 
+val is_empty : t -> bool
+
 (* Insert a pstring that corresponds to a term in the index *)
 val insert_pstring : t -> Pstring.t -> Term.t -> unit
 
