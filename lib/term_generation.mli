@@ -1,3 +1,6 @@
+(* Random generation of names and terms *)
+
+(* Probability weights distributed among variants *)
 type variant_weights = {
   bvar : float;
   fvar : float;
@@ -6,6 +9,10 @@ type variant_weights = {
   bind : float;
 }
 
+(* Probability thresholds distributed among variants
+(the last value represents the scale). A random number
+picked uniformly between 0 and scale excluded produces
+a custom distribution *)
 type variant_thresholds = {
   bvar : int;
   fvar : int;
@@ -14,6 +21,7 @@ type variant_thresholds = {
   bind : int;
 }
 
+(* How many names to produce for each variant *)
 type variant_counts = {
   fvar : int;
   mvar : int;
@@ -21,6 +29,7 @@ type variant_counts = {
   bind : int;
 }
 
+(* Options for random term generation *)
 type generation_options = {
   max_depth : int;
   variant_weights : variant_weights;
@@ -72,12 +81,19 @@ module TermSet : sig
   val to_seq : t -> Term.t Seq.t
 end
 
+(* Probability thresholds for letters in the latin alphabet distributed
+to represent the frequency of letters in english texts *)
 val letter_thresholds : int array
+
+(* See `letter_thresholds` for consonants only *)
 val consonant_thresholds : int array
+(* See `letter_thresholds` for vowels only *)
 val vowel_thresholds : int array
 
+(* Get a random index biased by the array of probability thresholds *)
 val random_letter_index : Lfsr_random.t -> int array -> (int * Lfsr_random.t)
 
+(* Weights to string *)
 val string_of_weights : variant_weights -> string
 
 val make_variant_weights : float -> float -> float -> float -> float -> variant_weights
