@@ -18,6 +18,11 @@ val string_of_term_set_full : ?n:int -> term_set -> string
 
 type t
 
+type retreival_options = {
+  fvar_instanciable : bool;
+  mvar_instanciable : bool;
+}
+
 val string_of : ?indent_pattern:string -> ?indent_level:int -> t -> string
 
 val empty : t
@@ -36,7 +41,7 @@ val add_term : t -> Term.t -> t
 (* Remove all pstrings of a term from the index *)
 val remove_term : t -> Term.t -> t
 
-val retreive_generalizations : t -> Term.t -> fvar_instanciable:bool -> mvar_instanciable:bool
+val retreive_generalizations : t -> Term.t -> retreival_options
   -> term_set
 
 val get_example_index : Term.factory -> (t * Term.t list * Term.factory)
