@@ -75,7 +75,12 @@ let string_of_term_set ?(n=4) (term_set: term_set) =
 
 let string_of_term_set_full ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
-  let string_of_term term = (Term.string_of term) ^ "{@" ^ (Utils.string_address_of ~n:n term) ^ "}" in
+  let string_of_term term = 
+    if (0 < n) then
+      (Term.string_of term) ^ "{@" ^ (Utils.string_address_of ~n:n term) ^ "}"
+    else
+      Term.string_of term
+  in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
 
@@ -407,6 +412,93 @@ let remove_term (term_index: t) (total_term: Term.t) =
     SparseArray.update target_i update_index_value node
   ) in
   index_with_root term_index (remove_map term_index.root total_term)
+
+let retreive_generalizations (index: t)
+                             (total_term: Term.t)
+                             ~(fvar_instanciable: bool)
+                             ~(mvar_instanciable: bool) =
+  let rec retreive (map_node: index_map_node) (term: Term.t) =
+    let term_is_function =
+      let open Term in
+      let open Term_symbol in
+        match term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> None
+        | App (name, args) -> Some (SymApp, name, args)
+        | Bind (name, arg) -> Some (SymBind, name, [arg])
+    in
+    let first_candidate_set: term_set = (
+      match term_is_function with
+      | Some (variant, name, args) -> (
+        let term_symbol: Term_symbol.t = {
+          variant = variant;
+          name = name
+        } in
+        let transition_search = SymbolKeyedMap.find_opt term_symbol map_node in
+        match transition_search with
+        | Some map_subnode -> (
+          match map_subnode with
+          | SubLeaf term_set -> term_set
+          | SubArray subarray -> (
+            let union_retreive term_union value =
+              let (arg, map_node) = value in
+              let retreived = retreive map_node arg in
+              TermSet.union retreived term_union
+            in
+
+            (* The array in the index contains as many subnodes as
+            the term being represented contains arguments *)
+            assert ((List.length args) = (SparseArray.cardinal subarray));
+
+            let args_seq: Term.t Seq.t = List.to_seq args in
+            let subarray_seq: (int * index_map_node) Seq.t = SparseArray.to_seq subarray in
+            let pack (arg: Term.t) (array_kvp: int * index_map_node) =
+              let (_i, map_node) = array_kvp in
+              (arg, map_node)
+            in
+            let packed_seq: (Term.t * index_map_node) Seq.t =
+              Seq.map2 pack args_seq subarray_seq
+            in
+            let term_union = Seq.fold_left union_retreive TermSet.empty packed_seq in
+            term_union
+          )
+        )
+        | None -> TermSet.empty
+      )
+      | None -> TermSet.empty
+    ) in
+    let second_candidate_set = (
+      let variant_is_instanciable (variant: Term_symbol.variant) =
+        let open Term_symbol in
+          match variant with
+          | SymFvar -> fvar_instanciable
+          | SymMvar -> mvar_instanciable
+          | _ -> false
+      in
+      let map_node_seq: (Term_symbol.t * index_map_subnode) Seq.t =
+        SymbolKeyedMap.to_seq map_node
+      in
+      let instanciable_sets: (term_set Seq.t) =
+        let predicate ((symbol, subnode): Term_symbol.t * index_map_subnode) =
+          match subnode with
+          | SubArray _ -> None
+          | SubLeaf term_set -> (
+            if (variant_is_instanciable symbol.variant) then
+              Some term_set
+            else
+              None
+          )
+        in
+        Seq.filter_map predicate map_node_seq
+      in
+      let union (term_union: term_set) (current_set: term_set) =
+        TermSet.union term_union current_set
+      in
+      let term_union = Seq.fold_left union TermSet.empty instanciable_sets in
+      term_union
+    ) in
+    TermSet.union first_candidate_set second_candidate_set
+  in
+  retreive index.root total_term
 
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =

@@ -1,5 +1,21 @@
 (* Immutable implementation of a term index *)
 
+module IdComparableTerm : sig
+  type t = Term.t
+  val compare : t -> t -> int
+end
+
+(* Set of terms on a leaf of the index *)
+module TermSet : sig
+  type t = Set.Make(IdComparableTerm).t
+end
+
+type term_set = TermSet.t
+
+val string_of_term_set : ?n:int -> term_set -> string
+
+val string_of_term_set_full : ?n:int -> term_set -> string
+
 type t
 
 val string_of : ?indent_pattern:string -> ?indent_level:int -> t -> string
@@ -19,5 +35,8 @@ val add_term : t -> Term.t -> t
 
 (* Remove all pstrings of a term from the index *)
 val remove_term : t -> Term.t -> t
+
+val retreive_generalizations : t -> Term.t -> fvar_instanciable:bool -> mvar_instanciable:bool
+  -> term_set
 
 val get_example_index : Term.factory -> (t * Term.t list * Term.factory)
