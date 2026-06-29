@@ -27,11 +27,12 @@ val debug_string_of_factory : ?address_digits:int -> factory -> string
 
 val factory_cardinal : factory -> int
 
-val create_bvar : int -> factory -> (t * factory)
-val create_fvar : name -> factory -> (t * factory)
-val create_mvar : name -> factory -> (t * factory)
-val create_app  : name -> t list -> factory -> (t * factory)
-val create_bind : name -> t -> factory -> (t * factory)
+val create_bvar  : int -> factory -> (t * factory)
+val create_fvar  : name -> factory -> (t * factory)
+val create_mvar  : name -> factory -> (t * factory)
+val create_app   : name -> t list -> factory -> (t * factory)
+val create_const : name -> factory -> (t * factory)
+val create_bind  : name -> t -> factory -> (t * factory)
 
 (** Term to string recursively *)
 val string_of : t -> string

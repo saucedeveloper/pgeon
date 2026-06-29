@@ -75,6 +75,9 @@ let create_mvar name factory = create_or_get_term (Mvar name) factory
 (* Create or get App in factory *)
 let create_app name terms factory = create_or_get_term (App (name, terms)) factory
 
+(* Create or get App in factory *)
+let create_const name factory = create_app name [] factory
+
 (* Create or get Bind in factory *)
 let create_bind name term factory = create_or_get_term (Bind (name, term)) factory
 
