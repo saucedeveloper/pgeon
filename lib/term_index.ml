@@ -67,11 +67,19 @@ type t = {
   root: index_map_node;
 }
 
+type retreival_options = {
+  fvar_instanciable : bool;
+  mvar_instanciable : bool;
+}
+
 let string_of_term_set ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
   let string_of_term term = Utils.string_address_of ~n:n term in
   let strings = List.map string_of_term term_list in
-  Printf.sprintf "{ %s }" (String.concat ", " strings)
+  if 0 < List.length strings then
+    Printf.sprintf "{ %s }" (String.concat ", " strings)
+  else
+    "{}"
 
 let string_of_term_set_full ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
@@ -82,7 +90,10 @@ let string_of_term_set_full ?(n=4) (term_set: term_set) =
       Term.string_of term
   in
   let strings = List.map string_of_term term_list in
-  Printf.sprintf "{ %s }" (String.concat ", " strings)
+  if 0 < List.length strings then
+    Printf.sprintf "{ %s }" (String.concat ", " strings)
+  else
+    "{}"
 
 let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   let rec rec_array (current: index_array_node) (depth: int) =
@@ -413,21 +424,55 @@ let remove_term (term_index: t) (total_term: Term.t) =
   ) in
   index_with_root term_index (remove_map term_index.root total_term)
 
+let term_is_function (term: Term.t) =
+  let open Term in
+  let open Term_symbol in
+    match term with
+    | App (_, []) -> None
+    | App (name, args) -> Some (SymApp, name, args)
+    | Bind (name, arg) -> Some (SymBind, name, [arg])
+    | _ -> None
+
+let variant_is_instanciable (variant: Term_symbol.variant) (options: retreival_options) =
+  let open Term_symbol in
+    match variant with
+    | SymFvar -> options.fvar_instanciable
+    | SymMvar -> options.mvar_instanciable
+    | _ -> false
+
+let term_is_instanciable (term: Term.t) (options: retreival_options) =
+  let open Term in
+    match term with
+    | Fvar _ -> options.fvar_instanciable
+    | Mvar _ -> options.mvar_instanciable
+    | _ -> false
+
+(*
+function retreive_generalizations(map_node s, term u) returns term_set
+  M := {};
+  if (u.is_function() -> (symbol, args)) then
+    if (s.contains(u.symbol) -> subnode) then
+      if (subnode is SubLeaf term_set)
+        M := term_set;
+      else (SubArray subarray)
+        map_nodes_and_arg := zip(subarray.values(), args)
+        sets := map_nodes_and_arg.map(retreive_generalizations);
+        M := set.intersect(sets);
+    end if;
+  end if;
+  foreach (term_set in s.where((sym, subnode) -> sym.is_instanciable() && subnode is term_set)) loop
+    M := set.union(M, term_set);
+  end loop;
+  return M;
+end function
+*)
+
 let retreive_generalizations (index: t)
                              (total_term: Term.t)
-                             ~(fvar_instanciable: bool)
-                             ~(mvar_instanciable: bool) =
+                             (options: retreival_options) =
   let rec retreive (map_node: index_map_node) (term: Term.t) =
-    let term_is_function =
-      let open Term in
-      let open Term_symbol in
-        match term with
-        | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> None
-        | App (name, args) -> Some (SymApp, name, args)
-        | Bind (name, arg) -> Some (SymBind, name, [arg])
-    in
     let first_candidate_set: term_set = (
-      match term_is_function with
+      match term_is_function term with
       | Some (variant, name, args) -> (
         let term_symbol: Term_symbol.t = {
           variant = variant;
@@ -439,15 +484,18 @@ let retreive_generalizations (index: t)
           match map_subnode with
           | SubLeaf term_set -> term_set
           | SubArray subarray -> (
-            let union_retreive term_union value =
+            let intersect_retreive (previous: term_set option) (value: Term.t * index_map_node) =
               let (arg, map_node) = value in
               let retreived = retreive map_node arg in
-              TermSet.union retreived term_union
+              match previous with
+              | None -> Some retreived
+              | Some term_set -> Some (TermSet.inter retreived term_set)
             in
 
             (* The array in the index contains as many subnodes as
             the term being represented contains arguments *)
             assert ((List.length args) = (SparseArray.cardinal subarray));
+            assert (0 < List.length args);
 
             let args_seq: Term.t Seq.t = List.to_seq args in
             let subarray_seq: (int * index_map_node) Seq.t = SparseArray.to_seq subarray in
@@ -458,8 +506,11 @@ let retreive_generalizations (index: t)
             let packed_seq: (Term.t * index_map_node) Seq.t =
               Seq.map2 pack args_seq subarray_seq
             in
-            let term_union = Seq.fold_left union_retreive TermSet.empty packed_seq in
-            term_union
+            let term_inter = Seq.fold_left intersect_retreive None packed_seq in
+            match term_inter with
+            (* intersect_retreive was not called <=> args was empty *)
+            | None -> assert (false);
+            | Some result -> result
           )
         )
         | None -> TermSet.empty
@@ -467,13 +518,6 @@ let retreive_generalizations (index: t)
       | None -> TermSet.empty
     ) in
     let second_candidate_set = (
-      let variant_is_instanciable (variant: Term_symbol.variant) =
-        let open Term_symbol in
-          match variant with
-          | SymFvar -> fvar_instanciable
-          | SymMvar -> mvar_instanciable
-          | _ -> false
-      in
       let map_node_seq: (Term_symbol.t * index_map_subnode) Seq.t =
         SymbolKeyedMap.to_seq map_node
       in
@@ -482,7 +526,7 @@ let retreive_generalizations (index: t)
           match subnode with
           | SubArray _ -> None
           | SubLeaf term_set -> (
-            if (variant_is_instanciable symbol.variant) then
+            if (variant_is_instanciable symbol.variant options) then
               Some term_set
             else
               None
@@ -499,6 +543,31 @@ let retreive_generalizations (index: t)
     TermSet.union first_candidate_set second_candidate_set
   in
   retreive index.root total_term
+
+(*
+function retreive_instances(map_node s, term u) returns term_set
+  if (u.is_instanciable) then
+    M := set.union(s.term_sets())
+  else if (s.contains(u.symbol) -> subnode) then
+    if (subnode is SubLeaf term_set)
+      M := term_set;
+    else (SubArray subarray)
+      map_nodes_and_arg := zip(subarray.values(), args)
+      sets := map_nodes_and_arg.map(retreive_instances);
+      M := set.union(sets);
+  end if;
+  return M;
+*)
+
+(* let retreive_instances (index: t)
+                       (total_term: Term.t)
+                       (options: retreival_options) =
+  let rec retreive (map_node: index_map_node) (term: Term.t) =
+    if term_is_instanciable term then (
+      TermSet.fold
+      TermSet.union 
+    ) else
+      () *)
 
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =
@@ -579,3 +648,5 @@ let get_example_index factory0 =
     ]
   } in
   (manual_index, terms, factory13)
+
+(*  *)
