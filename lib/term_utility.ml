@@ -6,6 +6,18 @@ type template =
 | TApp  of Term.name * template list
 | TBind of Term.name * template
 
+let tbvar (i: int) = TBvar i
+
+let tfvar (name: Term.name) = TFvar name
+
+let tmvar (name: Term.name) = TMvar name
+
+let tapp (name: Term.name) (args: template list) = TApp (name, args)
+
+let tconst (name: Term.name) = TApp (name, [])
+
+let tbind (name: Term.name) (arg: template) = TBind (name, arg)
+
 let rec create_from_template (template: template) (factory: Term.factory) =
   match template with
   | TBvar i -> Term.create_bvar i factory
@@ -31,3 +43,6 @@ let create_many (templates: template list) (factory: Term.factory) =
   in
   let (next_factory, terms) = List.fold_left_map f factory templates in
   (terms, next_factory)
+
+let string_of_full ?(n=4) (term: Term.t) =
+  Printf.sprintf "%s{@%s}" (Term.string_of term) (Utils.string_address_of ~n:n term)
