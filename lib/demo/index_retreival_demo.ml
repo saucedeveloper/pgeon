@@ -28,36 +28,41 @@ open Pgeon
 
 let () =
   let factory0 = Term.empty_factory in
-  let (a, factory1) = Term.create_const "a" factory0 in
-  let (b, factory2) = Term.create_const "b" factory1 in
-  let (c, factory3) = Term.create_const "c" factory2 in
-  let (x, factory4) = Term.create_fvar  "x" factory3 in
-  let (y, factory5) = Term.create_fvar  "y" factory4 in
-  let (g1, factory6) = Term.create_app "g" [b; x] factory5 in
-  let (g2, factory7) = Term.create_app "g" [x; b] factory6 in
-  let (f_gen, factory8) = Term.create_app "f" [a; b; c] factory7 in
-  let (f1, factory9) = Term.create_app "f" [a; g1; c] factory8 in
-  let (f2, factory10) = Term.create_app "f" [a; y; c] factory9 in
-  let (f3, factory11) = Term.create_app "f" [a; y; x] factory10 in
-  let (f4, factory12) = Term.create_app "f" [b; y; c] factory11 in
-  let (f5, factory13) = Term.create_app "f" [a; y; a] factory12 in
-  let (f6, factory14) = Term.create_app "f" [a; y; g2] factory13 in
-  let (meta_z, factory15) = Term.create_mvar "Z" factory14 in
+  let open Term_utility in
+  let a = tconst "a" in
+  let b = tconst "b" in
+  let c = tconst "c" in
+  let x = tfvar "x" in
+  let y = tfvar "y" in
+  let templates = [
+    tapp "f" [a; b];
+    tapp "f" [a; y];
+    tapp "f" [x; y];
+    a; b; c; x; y;
+  ] in
+  let (term_list, _factory1) = create_many templates factory0 in
+  let terms = Array.of_list term_list in
+  let indexed_terms = [
+    terms.(0);
+    terms.(1);
+    terms.(2);
+    terms.(6);
+  ] in
+  let query = terms.(0) in
 
-  let f_terms = [f1; f2; f3; f4; f5; f6] in
   let index = Term_index.empty in
-  let inserted_index = List.fold_left Term_index.add_term index f_terms in
+  let inserted_index = List.fold_left Term_index.add_term index indexed_terms in
 
-  (* Printf.printf "index: %s\n" (Term_index.string_of inserted_index); *)
-  Printf.printf "terms: %s\n" (String.concat ", " (List.map Term.string_of f_terms));
+  Printf.printf "index: %s\n" (Term_index.string_of inserted_index);
+  Printf.printf "indexed terms: %s\n" (String.concat ", " (List.map Term_utility.string_of_full indexed_terms));
 
   let options: Term_index.retreival_options = {
     fvar_instanciable = true;
     mvar_instanciable = true;
   } in
-  let generalizations = Term_index.retreive_generalizations inserted_index f_gen options in
+  let generalizations = Term_index.retreive_generalizations inserted_index query options in
   Printf.printf "query: %s\ngeneralizations: %s\n"
-    (Term.string_of f_gen)
-    (Term_index.string_of_term_set_full ~n:0 generalizations);
+    (Term.string_of query)
+    (Term_index.string_of_term_set_full generalizations);
 
   ;;
