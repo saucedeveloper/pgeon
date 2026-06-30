@@ -20,6 +20,8 @@ but not
 }
 *)
 
+open Pgeon
+
 let () =
   let factory0 = Term.empty_factory in
   let (a, factory1) = Term.create_const "a" factory0 in
@@ -35,7 +37,7 @@ let () =
   let (f_y3, factory11) = Term.create_app "f" [a; x; c] factory10 in
   let (f_n1, factory12) = Term.create_app "f" [b; y; c] factory11 in
   let (f_n2, factory13) = Term.create_app "f" [a; y; a] factory12 in
-  let (f_n3, factory14) = Term.create_app "f" [a; y; g2] factory13 in
+  let (f_n3, _factory14) = Term.create_app "f" [a; y; g2] factory13 in
 
   let f_terms = [f_y1; f_y2; f_y3; f_n1; f_n2; f_n3] in
   let index = Term_index.empty in

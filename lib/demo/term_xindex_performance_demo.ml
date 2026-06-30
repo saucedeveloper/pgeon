@@ -8,6 +8,8 @@ ocamlc -c utils.mli term.mli term_symbol.mli lfsr_random.mli term_generation.mli
 ocamlc -o term_xindex_performance_demo.exe utils.ml term.ml term_symbol.ml lfsr_random.ml term_generation.ml pstring.ml term_index.ml term_mindex.ml demo/term_xindex_performance_demo.ml
 *)
 
+open Pgeon
+
 module TermSet = Term_generation.TermSet
 
 let index_insert_terms index terms =
@@ -62,7 +64,7 @@ let _ =
   } in
   let factory0 = Term.empty_factory in
   let time_start_generation = Sys.time () in
-  let (terms, next_state, factory1) = Term_generation.add_random_terms next_state term_count template_bank options factory0 in
+  let (terms, _next_state, factory1) = Term_generation.add_random_terms next_state term_count template_bank options factory0 in
   let time_end_generation = Sys.time () in
   Printf.printf "Generation: %fs\n" (time_end_generation -. time_start_generation);
   Printf.printf "Launching with %d/%d wanted terms, factory has %d\n"

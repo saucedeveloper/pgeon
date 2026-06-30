@@ -7,10 +7,12 @@ ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli term_mindex.mli
 ocamlc -o term_mindex_demo.exe utils.ml term.ml term_symbol.ml pstring.ml term_mindex.ml demo/term_mindex_demo.ml
 *)
 
+open Pgeon
+
 let insertion_deletion_demo () =
   let factory0 = Term.empty_factory in
 
-  let (manual_index, terms, factory1) = Term_mindex.get_example_index factory0 in
+  let (manual_index, terms, _factory1) = Term_mindex.get_example_index factory0 in
 
   Printf.printf "manual_index: %s\n\n" (Term_mindex.string_of manual_index);
 

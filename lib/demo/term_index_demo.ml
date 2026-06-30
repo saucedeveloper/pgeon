@@ -8,6 +8,8 @@ ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli term_index.mli
 ocamlc -o term_index_demo.exe utils.ml term.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml
 *)
 
+open Pgeon
+
 type index_fold = {
   index : Term_index.t;
   term : Term.t;
@@ -16,7 +18,7 @@ type index_fold = {
 let insertion_deletion_demo () =
   let factory0 = Term.empty_factory in
 
-  let (manual_index, terms, factory1) = Term_index.get_example_index factory0 in
+  let (manual_index, terms, _factory1) = Term_index.get_example_index factory0 in
 
   Printf.printf "manual_index: %s\n\n" (Term_index.string_of manual_index);
 

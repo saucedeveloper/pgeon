@@ -7,6 +7,7 @@ ocamlc -c utils.mli term.mli
 ocamlc -o factory_demo.exe utils.ml term.ml demo/factory_demo.ml
 *)
 
+open Pgeon
 open Utils
 open Term
 

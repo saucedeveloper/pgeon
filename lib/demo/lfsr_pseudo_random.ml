@@ -8,6 +8,8 @@ ocamlc -c utils.mli
 ocamlc -o lfsr_pseudo_random.exe utils.ml lfsr_random.ml demo/lfsr_pseudo_random.ml
 *)
 
+open Pgeon
+
 module MultiSet = Map.Make(Int)
 
 let _ =
@@ -25,7 +27,7 @@ let _ =
     MultiSet.update number update_f table
   in
   let range = List.init generation_count (fun x -> x + 1) in
-  let compund_number (acc: int MultiSet.t * Lfsr_random.t) (arg: int) =
+  let compund_number (acc: int MultiSet.t * Lfsr_random.t) (_arg: int) =
     let (table, number) = acc in
     let result = Lfsr_random.next number in
     let kept = Lfsr_random.get_current result range_size in

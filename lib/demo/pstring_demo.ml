@@ -8,6 +8,8 @@ ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli
 ocamlc -o pstring_demo.exe utils.ml term.ml term_symbol.ml pstring.ml demo/pstring_demo.ml
 *)
 
+open Pgeon
+
 module PstringSetElement = struct
   type t = Pstring.t
   let compare = compare
@@ -32,7 +34,7 @@ let _ =
   let (f2, factory10) = Term.create_app "f" [g2; x] factory9 in
   let (f3, factory11) = Term.create_app "f" [g3; c] factory10 in
   let (f4, factory12) = Term.create_app "f" [g4; b] factory11 in
-  let (f5, factory13) = Term.create_app "f" [x; x] factory12 in
+  let (f5, _factory13) = Term.create_app "f" [x; x] factory12 in
   let terms = [f1; f2; f3; f4; f5] in
   let all_pstrings = Dynarray.create () in
   let print_term_pstrings term =
