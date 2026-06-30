@@ -428,7 +428,6 @@ let term_is_function (term: Term.t) =
   let open Term in
   let open Term_symbol in
     match term with
-    | App (_, []) -> None
     | App (name, args) -> Some (SymApp, name, args)
     | Bind (name, arg) -> Some (SymBind, name, [arg])
     | _ -> None
@@ -440,12 +439,12 @@ let variant_is_instanciable (variant: Term_symbol.variant) (options: retreival_o
     | SymMvar -> options.mvar_instanciable
     | _ -> false
 
-let term_is_instanciable (term: Term.t) (options: retreival_options) =
+(* let term_is_instanciable (term: Term.t) (options: retreival_options) =
   let open Term in
     match term with
     | Fvar _ -> options.fvar_instanciable
     | Mvar _ -> options.mvar_instanciable
-    | _ -> false
+    | _ -> false *)
 
 (*
 function retreive_generalizations(map_node s, term u) returns term_set
