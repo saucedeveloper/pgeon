@@ -219,7 +219,7 @@ let random_name (source: Lfsr_random.t) (name_max_length: int) ~case:case =
       (get_vowel_index vowel_index, next_state)
     in
     let letter = Char.chr (offset + ascii_start) in
-    let next_state = Lfsr_random.next state in
+    let next_state = Lfsr_random.next next_state in
     (letter::letters, next_state)
   in
   let fold_init = ([], next_state) in
@@ -408,7 +408,7 @@ let add_random_term (source: Lfsr_random.t)
           let (term, next_state, next_factory) = recursive (term_depth + 1) bind_depth next_state next_factory in
           ((next_state, next_factory), term)
         in
-        let ((next_state, next_factory), terms) = List.fold_left_map make_inner_term (next_state, factory) iter_range in
+        let ((next_state, next_factory), terms) = List.fold_left_map make_inner_term (state, factory) iter_range in
         (terms, next_state, next_factory)
       in
       random_app next_state variant_template_bank.app_arr make_inner_list factory

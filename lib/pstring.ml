@@ -9,13 +9,6 @@ type t = node array
 
 let node_root_index = -1
 
-let list_map_index (f: 'a -> int -> 'b) (list: 'a list) =
-  let rec recursive remainder index = match remainder with
-    | [] -> []
-    | hd::tl -> (f hd index)::(recursive tl (index + 1))
-  in
-  recursive list 0
-
 let array_map_to_list (f: 'a -> 'b) (array: 'a array) =
   let array_length = Array.length array in
   let rec recursive index =
@@ -66,14 +59,14 @@ let all_of_term (term: Term.t) =
       Dynarray.remove_last shared_path;
       [resulting_path]
     )
-    | Term.App (name, terms) -> (
+    | Term.App (_name, terms) -> (
       let f index inner = recursive inner index in
       let created_paths_by_term = List.mapi f terms in
       let inner_created = List.concat created_paths_by_term in
       Dynarray.remove_last shared_path;
       inner_created
     )
-    | Term.Bind (name, inner) -> (
+    | Term.Bind (_name, inner) -> (
       let inner_created = recursive inner 0 in
       Dynarray.remove_last shared_path;
       inner_created
@@ -83,15 +76,15 @@ let all_of_term (term: Term.t) =
   assert ((Dynarray.length shared_path) = 0);
   result
 
-let get_subterm term index =
+(* let get_subterm term index =
   match term with
   | Term.Bvar _ | Term.Fvar _ | Term.Mvar _ -> None
-  | Term.App (name, terms) -> (
+  | Term.App (_name, terms) -> (
     List.nth_opt terms index
   )
-  | Term.Bind (name, term) -> (
+  | Term.Bind (_name, term) -> (
     if index = 0 then (Some term) else None
-  )
+  ) *)
 
 let string_of_node (node: node) =
   let symbol_string = Term_symbol.string_of node.symbol in

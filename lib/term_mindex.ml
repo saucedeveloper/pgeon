@@ -54,11 +54,6 @@ type t = {
 
 let array_node_create ?(capacity=8) () = Hashtbl.create capacity
 
-let array_node_singleton ?(capacity=8) (index: int) (map_node: map_node) =
-  let created_node = array_node_create ~capacity () in
-  Hashtbl.add created_node index map_node;
-  created_node
-
 let array_node_replace (container: array_node) (index: int) (map_node: map_node) =
   Hashtbl.replace container index map_node;
   ()
@@ -259,7 +254,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
         Hashtbl.add node target_symbol (SubLeaf (term_set_singleton total_term));
         ()
       )
-      | App (name, args) -> (
+      | App (_name, args) -> (
         (* Array with args for each index *)
         let subarray = array_node_create () in
         let subnode = SubArray subarray in
@@ -272,7 +267,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
         Hashtbl.add node target_symbol subnode;
         ()
       )
-      | Bind (name, arg) -> (
+      | Bind (_name, arg) -> (
         let subarray = array_node_create () in
         insert_array subarray arg 0;
         assert ((Hashtbl.length subarray) = 1);
@@ -287,7 +282,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
           (assert (false);) (* Cannot be leaf when array exists *)
-        | App (name, args) -> (
+        | App (_name, args) -> (
           let insert_subterm (i: int) (term: Term.t) =
             insert_array subarray term i;
             ()
@@ -295,7 +290,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
           List.iteri insert_subterm args;
           ()
         )
-        | Bind (name, arg) -> (
+        | Bind (_name, arg) -> (
           insert_array subarray arg 0;
           ()
         )
@@ -348,7 +343,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
           (assert (false);) (* Cannot be leaf when array exists *)
-        | App (name, args) -> (
+        | App (_name, args) -> (
           let remove_subterm i arg =
             remove_array subarray arg i;
             assert (
@@ -365,7 +360,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
           ) else
             ()
         )
-        | Bind (name, arg) -> (
+        | Bind (_name, arg) -> (
           remove_array subarray arg 0;
           if (Hashtbl.length subarray) = 0 then (
             map_node_remove node target_symbol;

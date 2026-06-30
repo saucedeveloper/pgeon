@@ -50,8 +50,8 @@ let identifier_of term =
   | Bvar i -> Printf.sprintf "%d" i
   | Fvar x -> x
   | Mvar x -> x
-  | App (f, args) -> f
-  | Bind (b, body) -> b
+  | App (f, _args) -> f
+  | Bind (b, _body) -> b
 
 let create_or_get_term term factory =
   let existing_search = FactoryTermSet.find_opt term factory.set in (

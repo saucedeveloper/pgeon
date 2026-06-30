@@ -129,19 +129,19 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   in
   rec_map term_index.root indent_level
 
-let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
+(* let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
   match x with
   | Some value -> "Some(" ^ (string_of value) ^ ")"
-  | None -> "None"
+  | None -> "None" *)
 
-let string_of_option_variant (x: 'a option) =
+(* let string_of_option_variant (x: 'a option) =
   match x with
-  | Some value -> "Some"
-  | None -> "None"
+  | Some _ -> "Some"
+  | None -> "None" *)
 
 let empty = { root = SymbolKeyedMap.empty }
 
-let index_with_root (index: t) (root: index_map_node) =
+let index_with_root (_index: t) (root: index_map_node) =
   let result: t = { root = root } in
   result
 
@@ -287,11 +287,11 @@ let add_term (term_index: t) (total_term: Term.t) =
         (* New leaf with term *)
         Some (SubLeaf (TermSet.singleton total_term))
       )
-      | App (name, args) -> (
+      | App (_name, args) -> (
         (* Array with args for each index *)
         add_app SparseArray.empty args
       )
-      | Bind (name, arg) -> (
+      | Bind (_name, arg) -> (
         (* Array with arg for index 0 *)
         let array_with_added = add_array SparseArray.empty arg 0 in
         (* The created sub array is not empty *)
@@ -305,10 +305,10 @@ let add_term (term_index: t) (total_term: Term.t) =
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
           (assert (false);) (* Cannot be leaf when array exists *)
-        | App (name, args) -> (
+        | App (_name, args) -> (
           add_app subarray args
         )
-        | Bind (name, arg) -> (
+        | Bind (_name, arg) -> (
           let array_with_added = add_array subarray arg 0 in
           Some (SubArray array_with_added)
         )
@@ -353,7 +353,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) ->
           (assert (false);) (* Cannot be leaf when array exists *)
-        | App (name, args) -> (
+        | App (_name, args) -> (
           let fold_f arr arg_i =
             let (index, subterm) = arg_i in
             let array_with_removed = remove_array arr subterm index in
@@ -371,7 +371,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
           else
             Some (SubArray array_with_removed)
         )
-        | Bind (name, arg) -> (
+        | Bind (_name, arg) -> (
           let array_with_removed = remove_array subarray arg 0 in
           if (SparseArray.cardinal array_with_removed) = 0 then
             None
@@ -512,7 +512,6 @@ let get_example_index factory0 =
     SparseArray.of_seq sequence
   in
 
-  let factory0 = Term.empty_factory in
   let (a, factory1) = Term.create_app "a" [] factory0 in
   let (b, factory2) = Term.create_app "b" [] factory1 in
   let (c, factory3) = Term.create_app "c" [] factory2 in
