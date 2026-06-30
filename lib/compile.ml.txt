@@ -45,11 +45,14 @@ let string_of_tree tree =
 let term_of_expr expr =
   let rec compile env = function
     | Ast.EVar v -> (
-        match List.find_index (( = ) v) env with
-        | Some i -> Term.Bvar i
-        | None ->
-            if String.capitalize_ascii v = v then Term.Mvar v
-            else Term.App (v, []))
+      match List.find_index (( = ) v) env with
+      | Some i -> Term.Bvar i
+      | None ->
+        if String.capitalize_ascii v = v then
+          Term.Mvar v
+        else
+          Term.App (v, [])
+    )
     | Ast.EApp (f, args) -> Term.App (f, List.map (compile env) args)
     | Ast.EBind (b, v, body) -> Term.Bind (b, compile (v :: env) body)
   in
