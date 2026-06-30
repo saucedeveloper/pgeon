@@ -1,0 +1,41 @@
+retreive (s = root, u = App("f", [App "a", App "b"]))
+{
+    M := {}
+    know root(u) = (App, "f")
+    u is nonvariable, there is an entry for root(u) aka App "f"
+    s' is not a final state
+    know I = {0, 1}
+    retreive (s = s_0, u = App "a") results in { f(a, 'y), f(a, b), f('x, 'y) }
+    retreive (s = s_1, u = App "b") results in { f(a, 'y), f(a, b), f('x, 'y) }
+    M := { f(a, 'y), f(a, b), f('x, 'y) } inter itself
+
+    there is an entry for 'x which is instanciable
+    M := { f(a, 'y), f(a, b), f('x, 'y) } union { 'x }
+        = { f(a, 'y), f(a, b), f('x, 'y), 'x }
+    done
+}
+
+retreive (s = f.0, u = App "a")
+{
+    M := {}
+    know root(u) = (App, "a")
+    u is nonvariable, there is an entry for root(u) aka App "a"
+    s' is a final state
+    M := { f(a, 'y), f(a, b) }
+    there is an entry for 'x which is instanciable
+    M := { f(a, 'y), f(a, b) } union { f('x, 'y) }
+        = { f(a, 'y), f(a, b), f('x, 'y) }
+    done
+}
+
+retreive (s = f.1, u = App "b")
+{
+    M := {}
+    know root(u) = (App, "b")
+    u is nonvariable, there is an entry for root(u) aka App "b"
+    s' is a final state
+    M := { f(a, b) }
+    there is an entry for 'y which is instanciable
+    M := { f(a, b) } union { f('x, 'y), f(a, 'y) }
+        = { f(a, b), f('x, 'y), f(a, 'y) }
+}
