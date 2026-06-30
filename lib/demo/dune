@@ -1,5 +1,6 @@
 ; (dirs :standard ..)
-(library
- (name demo)
+(executable
+ (name index_retreival_demo)
+ (public_name demo)
  (libraries pgeon)
 )
