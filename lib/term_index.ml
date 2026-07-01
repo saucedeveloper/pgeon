@@ -439,12 +439,71 @@ let variant_is_instanciable (variant: Term_symbol.variant) (options: retreival_o
     | SymMvar -> options.mvar_instanciable
     | _ -> false
 
-(* let term_is_instanciable (term: Term.t) (options: retreival_options) =
+let term_is_instanciable (term: Term.t) (options: retreival_options) =
   let open Term in
     match term with
     | Fvar _ -> options.fvar_instanciable
     | Mvar _ -> options.mvar_instanciable
-    | _ -> false *)
+    | _ -> false
+
+(* Meant for set intersection that can short circuit as soon as the accumulater becomes the empty set *)
+(* Equivalent to the follwing (assuming all transform calls return Some)
+[items: 0] -> None
+[items: 1] -> Some items.(0)
+[items: 2] -> Some (transform items.(0) items.(1))
+[items: 3] -> Some (transform (transform items.(0) items.(1)) items.(2))
+...
+[items: 3, (transform ... items.(2) returns None)] -> Some (transform items.(0) items.(1))
+ *)
+let sequence_binary_fold_until (transform: 'acc -> 'b -> 'acc option) (items: 'b Seq.t) =
+  let rec recursive (acc_option: 'acc option) (remaining_items: 'b Seq.t) =
+    match remaining_items with
+    | Seq.Nil -> acc_option (* No remaining items => return accumulater *)
+    | Seq.Cons (item, rest) -> (
+      match acc_option with
+      | None -> recursive (Some item) rest (* Previous does not exist => recurse with first item *)
+      | Some previous -> (
+        (* Call binary transformation on previous accumulater and next item *)
+        let transformed: 'acc option = transform previous item in
+        match transformed with
+        | Some _ -> recursive transformed rest (* Returns some => continue *)
+        | None -> acc_option (* Returns none => stop there *)
+      )
+    )
+  in
+  recursive None items
+
+let retreivals_intersection (array_node: index_array_node) (args: Term.t list) =
+  (* The array in the index contains as many subnodes as
+  the term being represented contains arguments *)
+  assert ((List.length args) = (SparseArray.cardinal array_node));
+  (* Args is not empty <=> the term has subterms *)
+  assert (0 < List.length args);
+
+  let args_seq: Term.t Seq.t = List.to_seq args in
+  let subarray_seq: (int * index_map_node) Seq.t = SparseArray.to_seq array_node in
+  let pack (arg: Term.t) (array_kvp: int * index_map_node) =
+    let (_i, map_node) = array_kvp in
+    (arg, map_node)
+  in
+  let packed_seq: (Term.t * index_map_node) Seq.t =
+    Seq.map2 pack args_seq subarray_seq
+  in
+  let intersect_retreive (inter: term_set) (item: Term.t * index_map_node) =
+    if TermSet.is_empty inter then
+      None
+    else (
+      let (arg, map_node) = item in
+      let retreived = retreive map_node arg in
+      let next = TermSet.inter retreived term_set in
+      Some next
+    )
+  in
+  let term_inter = sequence_binary_fold_until transform packed_seq in
+  match term_inter with
+  (* intersect_retreive was not called <=> args was empty *)
+  | None -> assert (false);
+  | Some result -> result
 
 (*
 function retreive_generalizations(map_node s, term u) returns term_set
@@ -558,15 +617,27 @@ function retreive_instances(map_node s, term u) returns term_set
   return M;
 *)
 
-(* let retreive_instances (index: t)
+let retreive_instances (index: t)
                        (total_term: Term.t)
                        (options: retreival_options) =
   let rec retreive (map_node: index_map_node) (term: Term.t) =
     if term_is_instanciable term then (
-      TermSet.fold
-      TermSet.union 
-    ) else
-      () *)
+      let leaves = get_term_sets map_node in
+      TermSet.fold TermSet.union leaves TermSet.empty 
+    ) else (
+      let transition_search = SymbolKeyedMap.find_opt term_symbol map_node in
+        match transition_search with
+        | Some map_subnode -> (
+          match map_subnode with
+          | SubLeaf term_set -> term_set
+          | SubArray subarray -> (
+            ()
+          )
+        )
+        | None -> (
+          TermSet.empty
+        )
+    )
 
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =
