@@ -1,18 +1,12 @@
-(* Identifies the term variant without its contents *)
-type variant =
-| SymBvar
+(* Identifies the term symbol uniquely *)
+type t =
+| SymBvar of int
 | SymFvar
 | SymMvar
-| SymApp
-| SymBind
+| SymApp of Term.name
+| SymBind of Term.name
 
-(* Identifies the term symbol uniquely *)
-type t = {
-  variant : variant;
-  name : Term.name;
-}
-
-val string_of_variant : variant -> string
+val string_of_variant : t -> string
 
 val of_term : Term.t -> t
 

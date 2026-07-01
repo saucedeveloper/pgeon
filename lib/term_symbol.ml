@@ -1,36 +1,30 @@
-(* Identifies the term variant without its contents *)
-type variant =
-| SymBvar
+(* Identifies the term symbol uniquely *)
+type t =
+| SymBvar of int
 | SymFvar
 | SymMvar
-| SymApp
-| SymBind
-
-(* Identifies the term symbol uniquely *)
-type t = {
-  variant : variant;
-  name : Term.name;
-}
+| SymApp of Term.name
+| SymBind of Term.name
 
 let string_of_variant = function
-| SymBvar -> "Bvar"
+| SymBvar _ -> "Bvar"
 | SymFvar -> "Fvar"
 | SymMvar -> "Mvar"
-| SymApp  -> "App"
-| SymBind -> "Bind"
+| SymApp _ -> "App"
+| SymBind _ -> "Bind"
 
 let of_term term =
   match term with
-  | Term.Bvar index -> { variant = SymBvar; name = string_of_int index }
-  | Term.Fvar name -> { variant = SymFvar; name = name }
-  | Term.Mvar name -> { variant = SymMvar; name = name }
-  | Term.App (name, _) -> { variant = SymApp; name = name }
-  | Term.Bind (name, _) -> { variant = SymBind; name = name }
+  | Term.Bvar index -> SymBvar index
+  | Term.Fvar _ -> SymFvar
+  | Term.Mvar _ -> SymMvar
+  | Term.App (name, _) -> SymApp name
+  | Term.Bind (name, _) -> SymBind name
 
 let string_of (symbol: t) =
-  match symbol.variant with
-  | SymBvar -> "#" ^ symbol.name
-  | SymFvar -> "'" ^ symbol.name
-  | SymMvar -> "?" ^ symbol.name
-  | SymApp  -> ""  ^ symbol.name
-  | SymBind -> "~" ^ symbol.name
+  match symbol with
+  | SymBvar index -> "#" ^ string_of_int index
+  | SymFvar -> "''"
+  | SymMvar -> "??"
+  | SymApp name -> name
+  | SymBind name -> "~" ^ name
