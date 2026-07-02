@@ -1,0 +1,6 @@
+(library
+ (name test)
+ (libraries pgeon)
+ (inline_tests)
+ (preprocess (pps ppx_inline_test))
+)
