@@ -64,9 +64,9 @@ type variant_template_bank = {
 }
 
 type name_case =
-  | CamelCase (* eval *)
-  | UpperCase (* EVAL *)
-  | PascalCase (* Eval *)
+| CamelCase (* eval *)
+| UpperCase (* EVAL *)
+| PascalCase (* Eval *)
 
 module TermElement : sig
   type t = Term.t
