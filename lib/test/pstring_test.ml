@@ -28,6 +28,8 @@ let templates = [
 ]
 
 let (terms, factory1) = Term_utility.create_many templates factory0
+
+(* W.g(?Y, f(#0, a, 'x)) *)
 let total_term = List.hd terms
 let pstrings = Pstring.all_of_term total_term
 let pstring_set = PstringSet.of_list pstrings
