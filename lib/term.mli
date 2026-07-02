@@ -8,6 +8,14 @@ type t = private
   | App of name * t list
   | Bind of name * t
 
+(* Variants *)
+type variant =
+| VBvar
+| VFvar
+| VMvar
+| VApp
+| VBind
+
 type factory
 
 type t_alias = t
@@ -39,6 +47,8 @@ val string_of : t -> string
 
 (** Name/identifier of term (not recursive) *)
 val identifier_of : t -> string
+
+val get_subterms : t -> t list
 
 (** Term comparison: a - b *)
 val term_compare : t -> t -> int
