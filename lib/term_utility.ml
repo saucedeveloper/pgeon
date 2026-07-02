@@ -37,11 +37,11 @@ let rec create_from_template (template: template) (factory: Term.factory) =
   )
 
 let create_many (templates: template list) (factory: Term.factory) =
-  let f fac temp =
+  let create fac temp =
     let (created, next_factory) = create_from_template temp fac in
     (next_factory, created)
   in
-  let (next_factory, terms) = List.fold_left_map f factory templates in
+  let (next_factory, terms) = List.fold_left_map create factory templates in
   (terms, next_factory)
 
 let string_of_full ?(n=4) (term: Term.t) =
