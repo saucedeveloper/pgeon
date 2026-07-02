@@ -8,7 +8,7 @@ type t =
 | App of name * t list
 | Bind of name * t
 
-(* Variants *)
+(* Variants without their contents *)
 type variant =
 | VBvar
 | VFvar
