@@ -285,16 +285,16 @@ let random_variant (source: Lfsr_random.t) (weights: variant_weights) =
 
   let (rolled_number, next_state) = Lfsr_random.get_next source scale in
   if rolled_number < th.bvar then
-    (Term_symbol.SymBvar, next_state)
+    (Term.VBvar, next_state)
   else if rolled_number < th.fvar then
-    (Term_symbol.SymFvar, next_state)
+    (Term.VFvar, next_state)
   else if rolled_number < th.mvar then
-    (Term_symbol.SymMvar, next_state)
+    (Term.VMvar, next_state)
   else if rolled_number < th.app then
-    (Term_symbol.SymApp, next_state)
+    (Term.VApp, next_state)
   else (
     assert (rolled_number <= th.bind);
-    (Term_symbol.SymBind, next_state)
+    (Term.VBind, next_state)
   )
 
 (* Make a random map of (name, arity) key value pairs. Since names are generated pseudo randomly,
@@ -397,10 +397,10 @@ let add_random_term (source: Lfsr_random.t)
     let (variant, next_state) = random_variant state effective_variant_weights in
 
     match variant with
-    | Term_symbol.SymBvar -> (random_bvar next_state bind_depth factory)
-    | Term_symbol.SymFvar -> (random_fvar next_state variant_template_bank.fvar_arr factory)
-    | Term_symbol.SymMvar -> (random_mvar next_state variant_template_bank.mvar_arr factory)
-    | Term_symbol.SymApp  -> (
+    | Term.VBvar -> (random_bvar next_state bind_depth factory)
+    | Term.VFvar -> (random_fvar next_state variant_template_bank.fvar_arr factory)
+    | Term.VMvar -> (random_mvar next_state variant_template_bank.mvar_arr factory)
+    | Term.VApp  -> (
       let make_inner_list arity state factory =
         let iter_range = List.init arity (fun x -> x + 1) in
         let make_inner_term state_factory _i =
@@ -413,7 +413,7 @@ let add_random_term (source: Lfsr_random.t)
       in
       random_app next_state variant_template_bank.app_arr make_inner_list factory
     )
-    | Term_symbol.SymBind -> (
+    | Term.VBind -> (
       let make_inner state factory =
         recursive (term_depth + 1) (bind_depth + 1) state factory
       in

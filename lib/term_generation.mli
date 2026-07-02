@@ -118,7 +118,7 @@ val random_bind : Lfsr_random.t -> Term.name array -> make_inner_t -> Term.facto
   -> (Term.t * Lfsr_random.t * Term.factory)
 
 val random_variant : Lfsr_random.t -> variant_weights
-  -> (Term_symbol.variant * Lfsr_random.t)
+  -> (Term.variant * Lfsr_random.t)
 
 val random_variant_template_bank : Lfsr_random.t -> variant_counts -> int -> int
   -> (variant_template_bank * Lfsr_random.t)
