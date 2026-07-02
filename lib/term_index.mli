@@ -35,6 +35,9 @@ val add_pstring : t -> Pstring.t -> Term.t -> t
 (* Remove a pstring that corresponds to a term from the index *)
 val remove_pstring : t -> Pstring.t -> Term.t -> t
 
+(* Find the term set corresponding to the pstring *)
+val find_pstring : t -> Pstring.t -> term_set option
+
 (* Add all pstrings of a term to the index *)
 val add_term : t -> Term.t -> t
 
