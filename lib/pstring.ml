@@ -89,7 +89,7 @@ let all_of_term (term: Term.t) =
 let string_of_node (node: node) =
   let symbol_string = Term_symbol.string_of node.symbol in
   match node.index with
-  | -1 -> symbol_string
+  | -1 (* node_root_index *) -> symbol_string
   | _ -> Printf.sprintf "%d.%s" node.index symbol_string
 
 let string_of (pstr: t) = String.concat "." (array_map_to_list string_of_node pstr)
