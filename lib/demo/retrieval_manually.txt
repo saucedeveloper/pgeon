@@ -1,12 +1,12 @@
-retreive (s = root, u = App("f", [App "a", App "b"]))
+retrieve (s = root, u = App("f", [App "a", App "b"]))
 {
     M := {}
     know root(u) = (App, "f")
     u is nonvariable, there is an entry for root(u) aka App "f"
     s' is not a final state
     know I = {0, 1}
-    retreive (s = s_0, u = App "a") results in { f(a, 'y), f(a, b), f('x, 'y) }
-    retreive (s = s_1, u = App "b") results in { f(a, 'y), f(a, b), f('x, 'y) }
+    retrieve (s = s_0, u = App "a") results in { f(a, 'y), f(a, b), f('x, 'y) }
+    retrieve (s = s_1, u = App "b") results in { f(a, 'y), f(a, b), f('x, 'y) }
     M := { f(a, 'y), f(a, b), f('x, 'y) } inter itself
 
     there is an entry for 'x which is instanciable
@@ -15,7 +15,7 @@ retreive (s = root, u = App("f", [App "a", App "b"]))
     done
 }
 
-retreive (s = f.0, u = App "a")
+retrieve (s = f.0, u = App "a")
 {
     M := {}
     know root(u) = (App, "a")
@@ -28,7 +28,7 @@ retreive (s = f.0, u = App "a")
     done
 }
 
-retreive (s = f.1, u = App "b")
+retrieve (s = f.1, u = App "b")
 {
     M := {}
     know root(u) = (App, "b")

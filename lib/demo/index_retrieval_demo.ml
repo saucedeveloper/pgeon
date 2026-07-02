@@ -1,10 +1,10 @@
-(* Demonstrates retreival algorithms *)
+(* Demonstrates retrieval algorithms *)
 
 (* pgeon/lib $
 ocamlc -c utils.mli term.mli term_symbol.mli term_index.mli
 *)
 (* pgeon/lib $
-ocamlc -o index_retreival_demo.exe utils.ml term.ml term_symbol.ml term_index.ml demo/index_retreival_demo.ml
+ocamlc -o index_retrieval_demo.exe utils.ml term.ml term_symbol.ml term_index.ml demo/index_retrieval_demo.ml
 *)
 
 (*
@@ -56,11 +56,11 @@ let () =
   Printf.printf "index: %s\n" (Term_index.string_of inserted_index);
   Printf.printf "indexed terms: %s\n" (String.concat ", " (List.map Term_utility.string_of_full indexed_terms));
 
-  let options: Term_index.retreival_options = {
+  let options: Term_index.retrieval_options = {
     fvar_instanciable = true;
     mvar_instanciable = true;
   } in
-  let generalizations = Term_index.retreive_generalizations inserted_index query options in
+  let generalizations = Term_index.retrieve_generalizations inserted_index query options in
   Printf.printf "query: %s\ngeneralizations: %s\n"
     (Term.string_of query)
     (Term_index.string_of_term_set_full generalizations);
