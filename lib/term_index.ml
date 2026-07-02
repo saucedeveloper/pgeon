@@ -67,7 +67,7 @@ type t = {
   root: index_map_node;
 }
 
-type retreival_options = {
+type retrieval_options = {
   fvar_instanciable : bool;
   mvar_instanciable : bool;
 }
@@ -428,18 +428,18 @@ let term_is_function (term: Term.t) =
   let open Term in
   let open Term_symbol in
     match term with
-    | App (name, args) -> Some (SymApp, name, args)
-    | Bind (name, arg) -> Some (SymBind, name, [arg])
+    | App (name, args) -> Some (SymApp name, args)
+    | Bind (name, arg) -> Some (SymBind name, [arg])
     | _ -> None
 
-let variant_is_instanciable (variant: Term_symbol.variant) (options: retreival_options) =
+let variant_is_instanciable (symbol: Term_symbol.t) (options: retrieval_options) =
   let open Term_symbol in
-    match variant with
+    match symbol with
     | SymFvar -> options.fvar_instanciable
     | SymMvar -> options.mvar_instanciable
     | _ -> false
 
-let term_is_instanciable (term: Term.t) (options: retreival_options) =
+let term_is_instanciable (term: Term.t) (options: retrieval_options) =
   let open Term in
     match term with
     | Fvar _ -> options.fvar_instanciable
@@ -455,13 +455,14 @@ let term_is_instanciable (term: Term.t) (options: retreival_options) =
 ...
 [items: 3, (transform ... items.(2) returns None)] -> Some (transform items.(0) items.(1))
  *)
-let sequence_binary_fold_until (transform: 'acc -> 'b -> 'acc option) (items: 'b Seq.t) =
-  let rec recursive (acc_option: 'acc option) (remaining_items: 'b Seq.t) =
-    match remaining_items with
+
+let sequence_binary_fold_until (transform: 'acc -> 'b -> 'acc option) (initial: 'b -> 'acc) (items: 'b Seq.t): 'acc option =
+  let rec recursive (acc_option: 'acc option) (remaining_items: 'b Seq.t): 'acc option =
+    match remaining_items () with
     | Seq.Nil -> acc_option (* No remaining items => return accumulater *)
     | Seq.Cons (item, rest) -> (
       match acc_option with
-      | None -> recursive (Some item) rest (* Previous does not exist => recurse with first item *)
+      | None -> recursive (Some (initial item)) rest (* Previous does not exist => recurse with first item *)
       | Some previous -> (
         (* Call binary transformation on previous accumulater and next item *)
         let transformed: 'acc option = transform previous item in
@@ -473,7 +474,10 @@ let sequence_binary_fold_until (transform: 'acc -> 'b -> 'acc option) (items: 'b
   in
   recursive None items
 
-let retreivals_intersection (array_node: index_array_node) (args: Term.t list) =
+(* The intersection of calls to `retrieve` for each entry in `array_node` alongside `args` *)
+let retrievals_intersection (array_node: index_array_node)
+                            (args: Term.t list)
+                            (retrieve: index_map_node -> Term.t -> term_set) =
   (* The array in the index contains as many subnodes as
   the term being represented contains arguments *)
   assert ((List.length args) = (SparseArray.cardinal array_node));
@@ -489,24 +493,27 @@ let retreivals_intersection (array_node: index_array_node) (args: Term.t list) =
   let packed_seq: (Term.t * index_map_node) Seq.t =
     Seq.map2 pack args_seq subarray_seq
   in
-  let intersect_retreive (inter: term_set) (item: Term.t * index_map_node) =
+  let perform_retrieve (item: Term.t * index_map_node) =
+    let (arg, map_node) = item in
+    retrieve map_node arg
+  in
+  let intersect_retrieve (inter: term_set) (item: Term.t * index_map_node) =
     if TermSet.is_empty inter then
       None
     else (
-      let (arg, map_node) = item in
-      let retreived = retreive map_node arg in
-      let next = TermSet.inter retreived term_set in
+      let retrieved = perform_retrieve item in
+      let next = TermSet.inter retrieved inter in
       Some next
     )
   in
-  let term_inter = sequence_binary_fold_until transform packed_seq in
+  let term_inter = sequence_binary_fold_until intersect_retrieve perform_retrieve packed_seq in
   match term_inter with
-  (* intersect_retreive was not called <=> args was empty *)
+  (* intersect_retrieve was not called <=> args was empty *)
   | None -> assert (false);
   | Some result -> result
 
 (*
-function retreive_generalizations(map_node s, term u) returns term_set
+function retrieve_generalizations(map_node s, term u) returns term_set
   M := {};
   if (u.is_function() -> (symbol, args)) then
     if (s.contains(u.symbol) -> subnode) then
@@ -514,7 +521,7 @@ function retreive_generalizations(map_node s, term u) returns term_set
         M := term_set;
       else (SubArray subarray)
         map_nodes_and_arg := zip(subarray.values(), args)
-        sets := map_nodes_and_arg.map(retreive_generalizations);
+        sets := map_nodes_and_arg.map(retrieve_generalizations);
         M := set.intersect(sets);
     end if;
   end if;
@@ -525,50 +532,26 @@ function retreive_generalizations(map_node s, term u) returns term_set
 end function
 *)
 
-let retreive_generalizations (index: t)
+let retrieve_generalizations (index: t)
                              (total_term: Term.t)
-                             (options: retreival_options) =
-  let rec retreive (map_node: index_map_node) (term: Term.t) =
+                             (options: retrieval_options) =
+  let filter_generalizations term_set =
+    let is_generalization _term =
+      true (* TODO *)
+    in
+    TermSet.filter is_generalization term_set
+  in
+  let rec retrieve (map_node: index_map_node) (term: Term.t) =
     let first_candidate_set: term_set = (
       match term_is_function term with
-      | Some (variant, name, args) -> (
-        let term_symbol: Term_symbol.t = {
-          variant = variant;
-          name = name
-        } in
-        let transition_search = SymbolKeyedMap.find_opt term_symbol map_node in
+      | Some (symbol, args) -> (
+        let transition_search = SymbolKeyedMap.find_opt symbol map_node in
         match transition_search with
         | Some map_subnode -> (
           match map_subnode with
-          | SubLeaf term_set -> term_set
+          | SubLeaf term_set -> filter_generalizations term_set
           | SubArray subarray -> (
-            let intersect_retreive (previous: term_set option) (value: Term.t * index_map_node) =
-              let (arg, map_node) = value in
-              let retreived = retreive map_node arg in
-              match previous with
-              | None -> Some retreived
-              | Some term_set -> Some (TermSet.inter retreived term_set)
-            in
-
-            (* The array in the index contains as many subnodes as
-            the term being represented contains arguments *)
-            assert ((List.length args) = (SparseArray.cardinal subarray));
-            assert (0 < List.length args);
-
-            let args_seq: Term.t Seq.t = List.to_seq args in
-            let subarray_seq: (int * index_map_node) Seq.t = SparseArray.to_seq subarray in
-            let pack (arg: Term.t) (array_kvp: int * index_map_node) =
-              let (_i, map_node) = array_kvp in
-              (arg, map_node)
-            in
-            let packed_seq: (Term.t * index_map_node) Seq.t =
-              Seq.map2 pack args_seq subarray_seq
-            in
-            let term_inter = Seq.fold_left intersect_retreive None packed_seq in
-            match term_inter with
-            (* intersect_retreive was not called <=> args was empty *)
-            | None -> assert (false);
-            | Some result -> result
+            retrievals_intersection subarray args retrieve
           )
         )
         | None -> TermSet.empty
@@ -584,26 +567,23 @@ let retreive_generalizations (index: t)
           match subnode with
           | SubArray _ -> None
           | SubLeaf term_set -> (
-            if (variant_is_instanciable symbol.variant options) then
-              Some term_set
+            if (variant_is_instanciable symbol options) then
+              Some (filter_generalizations term_set)
             else
               None
           )
         in
         Seq.filter_map predicate map_node_seq
       in
-      let union (term_union: term_set) (current_set: term_set) =
-        TermSet.union term_union current_set
-      in
-      let term_union = Seq.fold_left union TermSet.empty instanciable_sets in
+      let term_union = Seq.fold_left TermSet.union TermSet.empty instanciable_sets in
       term_union
     ) in
     TermSet.union first_candidate_set second_candidate_set
   in
-  retreive index.root total_term
+  retrieve index.root total_term
 
 (*
-function retreive_instances(map_node s, term u) returns term_set
+function retrieve_instances(map_node s, term u) returns term_set
   if (u.is_instanciable) then
     M := set.union(s.term_sets())
   else if (s.contains(u.symbol) -> subnode) then
@@ -611,33 +591,55 @@ function retreive_instances(map_node s, term u) returns term_set
       M := term_set;
     else (SubArray subarray)
       map_nodes_and_arg := zip(subarray.values(), args)
-      sets := map_nodes_and_arg.map(retreive_instances);
+      sets := map_nodes_and_arg.map(retrieve_instances);
       M := set.union(sets);
   end if;
   return M;
 *)
 
-let retreive_instances (index: t)
+let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_set) =
+  let is_leaf (kvp: Term_symbol.t * index_map_subnode) =
+    let (_symbol, submap) = kvp in
+    match submap with
+    | SubArray _ -> None
+    | SubLeaf term_set -> Some (filter_set term_set)
+  in
+  Seq.filter_map is_leaf (SymbolKeyedMap.to_seq map_node)
+
+let retrieve_instances (index: t)
                        (total_term: Term.t)
-                       (options: retreival_options) =
-  let rec retreive (map_node: index_map_node) (term: Term.t) =
-    if term_is_instanciable term then (
-      let leaves = get_term_sets map_node in
-      TermSet.fold TermSet.union leaves TermSet.empty 
+                       (options: retrieval_options) =
+  let filter_instances term_set =
+    let is_instance _term =
+      true (* TODO *)
+    in
+    TermSet.filter is_instance term_set
+  in
+  let rec retrieve (map_node: index_map_node) (term: Term.t) =
+    if term_is_instanciable term options then (
+      let term_sets = get_map_term_sets map_node filter_instances in
+      Seq.fold_left TermSet.union TermSet.empty term_sets 
     ) else (
-      let transition_search = SymbolKeyedMap.find_opt term_symbol map_node in
-        match transition_search with
-        | Some map_subnode -> (
-          match map_subnode with
-          | SubLeaf term_set -> term_set
-          | SubArray subarray -> (
-            ()
-          )
+      let symbol = Term_symbol.of_term term in
+      let transition_search = SymbolKeyedMap.find_opt symbol map_node in
+      match transition_search with
+      | Some map_subnode -> (
+        match map_subnode with
+        | SubLeaf term_set -> filter_instances term_set
+        | SubArray subarray -> (
+          let subterms = Term.get_subterms term in
+          (* Index contains array where term has subterms *)
+          assert (0 < List.length subterms);
+          retrievals_intersection subarray subterms retrieve
         )
-        | None -> (
-          TermSet.empty
-        )
+      )
+      | None -> (
+        (* Unspecified by the algorithm *)
+        TermSet.empty
+      )
     )
+  in
+  retrieve index.root total_term
 
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =
