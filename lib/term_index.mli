@@ -12,6 +12,7 @@ module TermSet : sig
   type t = Set.Make(IdComparableTerm).t
   val mem : Term.t -> t -> bool
   val subset : t -> t -> bool
+  val cardinal : t -> int
 end
 
 type term_set = TermSet.t
