@@ -72,6 +72,7 @@ type retrieval_options = {
   mvar_instanciable : bool;
 }
 
+
 let string_of_term_set ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
   let string_of_term term = Utils.string_address_of ~n:n term in
@@ -80,6 +81,7 @@ let string_of_term_set ?(n=4) (term_set: term_set) =
     Printf.sprintf "{ %s }" (String.concat ", " strings)
   else
     "{}"
+
 
 let string_of_term_set_full ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
@@ -94,6 +96,7 @@ let string_of_term_set_full ?(n=4) (term_set: term_set) =
     Printf.sprintf "{ %s }" (String.concat ", " strings)
   else
     "{}"
+
 
 let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   let rec rec_array (current: index_array_node) (depth: int) =
@@ -140,6 +143,7 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   in
   rec_map term_index.root indent_level
 
+
 (* let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
   match x with
   | Some value -> "Some(" ^ (string_of value) ^ ")"
@@ -150,13 +154,17 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   | Some _ -> "Some"
   | None -> "None" *)
 
+
 let empty = { root = SymbolKeyedMap.empty }
+
 
 let index_with_root (_index: t) (root: index_map_node) =
   let result: t = { root = root } in
   result
 
+
 let is_empty index = SymbolKeyedMap.is_empty index.root
+
 
 let add_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec add_map (node: index_map_node) (pstring_i: int) =
@@ -222,6 +230,7 @@ let add_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   index_with_root term_index (add_map term_index.root 0)
 
+
 let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec remove_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
@@ -273,6 +282,17 @@ let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   assert ((Array.get pstring 0).symbol = Term_symbol.of_term term);
   index_with_root term_index (remove_map term_index.root 0)
 
+
+let add_pstrings (term_index: t) (pstrings: Pstring.t Seq.t) (term: Term.t) =
+  let fold index pstr = add_pstring index pstr term in
+  Seq.fold_left fold term_index pstrings
+
+
+let remove_pstrings (term_index: t) (pstrings: Pstring.t Seq.t) (term: Term.t) =
+  let fold index pstr = remove_pstring index pstr term in
+  Seq.fold_left fold term_index pstrings
+
+
 let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
   let rec find_map (node: index_map_node) (pstring_i: int): term_set option = (
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
@@ -302,6 +322,7 @@ let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
     | Some subnode -> find_map subnode pstring_i
   ) in
   find_map term_index.root 0
+
 
 let add_term (term_index: t) (total_term: Term.t) =
   let rec add_map (node: index_map_node) (current_term: Term.t) = (
@@ -382,6 +403,7 @@ let add_term (term_index: t) (total_term: Term.t) =
   in
   index_with_root term_index (add_map term_index.root total_term)
 
+
 let remove_term (term_index: t) (total_term: Term.t) =
   let rec remove_map (node: index_map_node) (current_term: Term.t) = (
     let target_symbol = Term_symbol.of_term current_term in
@@ -454,6 +476,21 @@ let remove_term (term_index: t) (total_term: Term.t) =
   ) in
   index_with_root term_index (remove_map term_index.root total_term)
 
+
+let add_terms (term_index: t) (terms: Term.t Seq.t) =
+  Seq.fold_left add_term term_index terms
+
+
+let remove_terms (term_index: t) (terms: Term.t Seq.t) =
+  Seq.fold_left remove_term term_index terms
+
+
+let make_options ~(fvar:bool) ~(mvar:bool): retrieval_options = {
+  fvar_instanciable = fvar;
+  mvar_instanciable = mvar;
+}
+
+
 let term_is_function (term: Term.t) =
   let open Term in
   let open Term_symbol in
@@ -462,6 +499,7 @@ let term_is_function (term: Term.t) =
     | Bind (name, arg) -> Some (SymBind name, [arg])
     | _ -> None
 
+
 let variant_is_instanciable (symbol: Term_symbol.t) (options: retrieval_options) =
   let open Term_symbol in
     match symbol with
@@ -469,12 +507,14 @@ let variant_is_instanciable (symbol: Term_symbol.t) (options: retrieval_options)
     | SymMvar -> options.mvar_instanciable
     | _ -> false
 
+
 let term_is_instanciable (term: Term.t) (options: retrieval_options) =
   let open Term in
     match term with
     | Fvar _ -> options.fvar_instanciable
     | Mvar _ -> options.mvar_instanciable
     | _ -> false
+
 
 (* Meant for set intersection that can short circuit as soon as the accumulater becomes the empty set *)
 (* Equivalent to the follwing (assuming all transform calls return Some)
@@ -503,6 +543,7 @@ let sequence_binary_fold_until (transform: 'acc -> 'b -> 'acc option) (initial: 
     )
   in
   recursive None items
+
 
 (* The intersection of calls to `retrieve` for each entry in `array_node` alongside `args` *)
 let retrievals_intersection (array_node: index_array_node)
@@ -541,6 +582,7 @@ let retrievals_intersection (array_node: index_array_node)
   (* intersect_retrieve was not called <=> args was empty *)
   | None -> assert (false);
   | Some result -> result
+
 
 (*
 function retrieve_generalizations(map_node s, term u) returns term_set
@@ -612,6 +654,17 @@ let retrieve_generalizations (index: t)
   in
   retrieve index.root total_term
 
+
+let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_set) =
+  let is_leaf (kvp: Term_symbol.t * index_map_subnode) =
+    let (_symbol, submap) = kvp in
+    match submap with
+    | SubArray _ -> None
+    | SubLeaf term_set -> Some (filter_set term_set)
+  in
+  Seq.filter_map is_leaf (SymbolKeyedMap.to_seq map_node)
+
+
 (*
 function retrieve_instances(map_node s, term u) returns term_set
   if (u.is_instanciable) then
@@ -626,15 +679,6 @@ function retrieve_instances(map_node s, term u) returns term_set
   end if;
   return M;
 *)
-
-let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_set) =
-  let is_leaf (kvp: Term_symbol.t * index_map_subnode) =
-    let (_symbol, submap) = kvp in
-    match submap with
-    | SubArray _ -> None
-    | SubLeaf term_set -> Some (filter_set term_set)
-  in
-  Seq.filter_map is_leaf (SymbolKeyedMap.to_seq map_node)
 
 let retrieve_instances (index: t)
                        (total_term: Term.t)
@@ -671,6 +715,7 @@ let retrieve_instances (index: t)
   in
   retrieve index.root total_term
 
+  
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =
     let sequence: ('a * 'b) Seq.t = List.to_seq list in
@@ -750,5 +795,3 @@ let get_example_index factory0 =
     ]
   } in
   (manual_index, terms, factory13)
-
-(*  *)

@@ -1,4 +1,6 @@
 (* Immutable implementation of a term index *)
+(* Addition and removal must be sound (break no invariant) and
+succeed, otherwise they result in an assertion failure *)
 
 module IdComparableTerm : sig
   type t = Term.t
@@ -8,6 +10,8 @@ end
 (* Set of terms on a leaf of the index *)
 module TermSet : sig
   type t = Set.Make(IdComparableTerm).t
+  val mem : Term.t -> t -> bool
+  val subset : t -> t -> bool
 end
 
 type term_set = TermSet.t
@@ -35,6 +39,12 @@ val add_pstring : t -> Pstring.t -> Term.t -> t
 (* Remove a pstring that corresponds to a term from the index *)
 val remove_pstring : t -> Pstring.t -> Term.t -> t
 
+(* Add multiple pstrings that corresponds to a term to the index *)
+val add_pstrings : t -> Pstring.t Seq.t -> Term.t -> t
+
+(* Remove multiple pstrings that corresponds to a term from the index *)
+val remove_pstrings : t -> Pstring.t Seq.t -> Term.t -> t
+
 (* Find the term set corresponding to the pstring *)
 val find_pstring : t -> Pstring.t -> term_set option
 
@@ -44,9 +54,19 @@ val add_term : t -> Term.t -> t
 (* Remove all pstrings of a term from the index *)
 val remove_term : t -> Term.t -> t
 
+val make_options : fvar:bool -> mvar:bool -> retrieval_options
+
+(* Add multiple terms to the index *)
+val add_terms : t -> Term.t Seq.t -> t
+
+(* Remove multiple terms from the index *)
+val remove_terms : t -> Term.t Seq.t -> t
+
+(* All generalizations of this term contained in the index *)
 val retrieve_generalizations : t -> Term.t -> retrieval_options
   -> term_set
 
+(* All instances of this term contained in the index *)
 val retrieve_instances : t -> Term.t -> retrieval_options
   -> term_set
 
