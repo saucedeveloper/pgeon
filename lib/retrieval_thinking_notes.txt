@@ -1,0 +1,10 @@
+m is a generalization of t <=> exists s \ m[.->s] = t
+take: W.#0
+W.'x is gen of W.#0 <=> exists s \ W.'x[.->s] = W.#0
+s = { 'x: #0 }, so true
+
+take: W.p(#0)
+W.p('x) is gen of W.p(#0) <=> exists s \ W.p('x)[.->s] = W.p(#0)
+s = { 'x: #0 }, so true
+
+take: W.p(K.f(#0, #1), a)
