@@ -23,8 +23,8 @@ val string_of_term_set_full : ?n:int -> term_set -> string
 type t
 
 type retrieval_options = {
-  fvar_instanciable : bool;
-  mvar_instanciable : bool;
+  fvar_instantiable : bool;
+  mvar_instantiable : bool;
 }
 
 val string_of : ?indent_pattern:string -> ?indent_level:int -> t -> string
@@ -63,11 +63,15 @@ val add_terms : t -> Term.t Seq.t -> t
 val remove_terms : t -> Term.t Seq.t -> t
 
 (* All generalizations of this term contained in the index *)
-val retrieve_generalizations : t -> Term.t -> retrieval_options
-  -> term_set
+val retrieve_generalizations : t -> Term.t -> retrieval_options -> term_set
 
 (* All instances of this term contained in the index *)
-val retrieve_instances : t -> Term.t -> retrieval_options
-  -> term_set
+val retrieve_instances : t -> Term.t -> retrieval_options -> term_set
+
+(* All terms unifiable with this term contained in the index *)
+val retrieve_unifiable : t -> Term.t -> retrieval_options -> term_set
+
+(* All variants of this term contained in the index *)
+val retrieve_variants : t -> Term.t -> term_set
 
 val get_example_index : Term.factory -> (t * Term.t list * Term.factory)

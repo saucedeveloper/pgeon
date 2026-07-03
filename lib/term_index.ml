@@ -68,8 +68,8 @@ type t = {
 }
 
 type retrieval_options = {
-  fvar_instanciable : bool;
-  mvar_instanciable : bool;
+  fvar_instantiable : bool;
+  mvar_instantiable : bool;
 }
 
 
@@ -486,8 +486,8 @@ let remove_terms (term_index: t) (terms: Term.t Seq.t) =
 
 
 let make_options ~(fvar:bool) ~(mvar:bool): retrieval_options = {
-  fvar_instanciable = fvar;
-  mvar_instanciable = mvar;
+  fvar_instantiable = fvar;
+  mvar_instantiable = mvar;
 }
 
 
@@ -500,19 +500,11 @@ let term_is_function (term: Term.t) =
     | _ -> None
 
 
-let variant_is_instanciable (symbol: Term_symbol.t) (options: retrieval_options) =
-  let open Term_symbol in
-    match symbol with
-    | SymFvar -> options.fvar_instanciable
-    | SymMvar -> options.mvar_instanciable
-    | _ -> false
-
-
-let term_is_instanciable (term: Term.t) (options: retrieval_options) =
+let term_is_instantiable (term: Term.t) (options: retrieval_options) =
   let open Term in
     match term with
-    | Fvar _ -> options.fvar_instanciable
-    | Mvar _ -> options.mvar_instanciable
+    | Fvar _ -> options.fvar_instantiable
+    | Mvar _ -> options.mvar_instantiable
     | _ -> false
 
 
@@ -584,10 +576,11 @@ let retrievals_intersection (array_node: index_array_node)
   | Some result -> result
 
 
-let union_of_instanciable (map_node: index_map_node) (options: retrieval_options): term_set =
+(* Union of instantiable *)
+let union_of_instantiable (map_node: index_map_node) (options: retrieval_options): term_set =
   let term_union =
-    let get_term_set instanciable symbol =
-      if not instanciable then
+    let get_term_set instantiable symbol =
+      if not instantiable then
         TermSet.empty
       else (
         let search = SymbolKeyedMap.find_opt symbol map_node in
@@ -598,8 +591,8 @@ let union_of_instanciable (map_node: index_map_node) (options: retrieval_options
         | _ -> TermSet.empty
       )
     in
-    let fvar_set = get_term_set options.fvar_instanciable SymFvar in
-    let mvar_set = get_term_set options.mvar_instanciable SymMvar in
+    let fvar_set = get_term_set options.fvar_instantiable SymFvar in
+    let mvar_set = get_term_set options.mvar_instantiable SymMvar in
     TermSet.union fvar_set mvar_set
   in
   term_union
@@ -651,7 +644,7 @@ let retrieve_generalizations (index: t)
       )
       | None -> TermSet.empty
     ) in
-    let second_candidate_set = union_of_instanciable map_node options in
+    let second_candidate_set = union_of_instantiable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
   retrieve index.root total_term
@@ -669,7 +662,7 @@ let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_s
 
 (*
 function retrieve_instances(map_node s, term u) returns term_set
-  if (u.is_instanciable) then
+  if (u.is_instantiable) then
     M := set.union(s.term_sets());
   else if (s.contains(u.symbol) -> subnode) then
     if (subnode is SubLeaf term_set)
@@ -693,7 +686,7 @@ let retrieve_instances (index: t)
     TermSet.filter is_instance term_set
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
-    if term_is_instanciable term options then (
+    if term_is_instantiable term options then (
       let term_sets = get_map_term_sets map_node filter_instances in
       Seq.fold_left TermSet.union TermSet.empty term_sets
     ) else (
@@ -721,7 +714,7 @@ let retrieve_instances (index: t)
 
 (*
 function retrieve_unifiable(map_node s, term u) returns term_set
-  if (u.is_instanciable) then
+  if (u.is_instantiable) then
     M := set.union(s.term_sets());
   else
     if (s.contains(u.symbol) -> subnode) then
@@ -752,7 +745,7 @@ let retrieve_unifiable (index: t)
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
     let first_candidate_set = (
-      if term_is_instanciable term options then (
+      if term_is_instantiable term options then (
         let term_sets = get_map_term_sets map_node filter_unifiable in
         Seq.fold_left TermSet.union TermSet.empty term_sets
       ) else (
@@ -772,7 +765,7 @@ let retrieve_unifiable (index: t)
         | None -> TermSet.empty
       )
     ) in
-    let second_candidate_set = union_of_instanciable map_node options in
+    let second_candidate_set = union_of_instantiable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
   retrieve index.root total_term

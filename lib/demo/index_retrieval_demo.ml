@@ -47,8 +47,8 @@ let () =
   Printf.printf "indexed terms: %s\n\n" (String.concat ", " (List.map Term_utility.string_of_full indexed_terms));
 
   let options: Term_index.retrieval_options = {
-    fvar_instanciable = true;
-    mvar_instanciable = true;
+    fvar_instantiable = true;
+    mvar_instantiable = true;
   } in
 
   let query = terms.(0) in

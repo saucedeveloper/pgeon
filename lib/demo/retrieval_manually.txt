@@ -9,7 +9,7 @@ retrieve (s = root, u = App("f", [App "a", App "b"]))
     retrieve (s = s_1, u = App "b") results in { f(a, 'y), f(a, b), f('x, 'y) }
     M := { f(a, 'y), f(a, b), f('x, 'y) } inter itself
 
-    there is an entry for 'x which is instanciable
+    there is an entry for 'x which is instantiable
     M := { f(a, 'y), f(a, b), f('x, 'y) } union { 'x }
         = { f(a, 'y), f(a, b), f('x, 'y), 'x }
     done
@@ -22,7 +22,7 @@ retrieve (s = f.0, u = App "a")
     u is nonvariable, there is an entry for root(u) aka App "a"
     s' is a final state
     M := { f(a, 'y), f(a, b) }
-    there is an entry for 'x which is instanciable
+    there is an entry for 'x which is instantiable
     M := { f(a, 'y), f(a, b) } union { f('x, 'y) }
         = { f(a, 'y), f(a, b), f('x, 'y) }
     done
@@ -35,7 +35,7 @@ retrieve (s = f.1, u = App "b")
     u is nonvariable, there is an entry for root(u) aka App "b"
     s' is a final state
     M := { f(a, b) }
-    there is an entry for 'y which is instanciable
+    there is an entry for 'y which is instantiable
     M := { f(a, b) } union { f('x, 'y), f(a, 'y) }
         = { f(a, b), f('x, 'y), f(a, 'y) }
 }
