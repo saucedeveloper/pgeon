@@ -96,3 +96,15 @@ let string_address_of ?(n=4) x =
     String.sub s start n
 
 let string_of_bool b = if b then "true" else "false"
+
+let seq_fold_left_map_to_list (f: 'acc -> 'a -> 'acc * 'b) (init: 'acc) (seq: 'a Seq.t): 'acc * 'b list =
+  let rec recursive accumulater remaining_seq =
+    match remaining_seq () with
+    | Seq.Nil -> (accumulater, [])
+    | Seq.Cons (item, next_seq) -> (
+      let (next_acc, transformed) = f accumulater item in
+      let (result_acc, inner_list) = recursive next_acc next_seq in
+      (result_acc, transformed::inner_list)
+    )
+  in
+  recursive init seq

@@ -18,3 +18,6 @@ val address_of : 'a -> int
 val string_address_of : ?n:int -> 'a -> string
 
 val string_of_bool : bool -> string
+
+(* List.fold_left_map with seq as parameter *)
+val seq_fold_left_map_to_list : ('acc -> 'a -> 'acc * 'b) -> 'acc -> 'a Seq.t -> 'acc * 'b list

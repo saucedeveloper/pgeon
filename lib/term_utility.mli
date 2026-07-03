@@ -15,6 +15,6 @@ val tconst : string -> template
 
 val create_from_template : template -> Term.factory -> Term.t * Term.factory
 
-val create_many : template list -> Term.factory -> Term.t list * Term.factory
+val create_many : template Seq.t -> Term.factory -> Term.t list * Term.factory
 
 val string_of_full : ?n:int -> Term.t -> string
