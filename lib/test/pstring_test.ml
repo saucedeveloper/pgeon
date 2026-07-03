@@ -27,7 +27,7 @@ let templates = [
   t_appg;
 ]
 
-let (terms, factory1) = Term_utility.create_many templates factory0
+let (terms, _factory1) = Term_utility.create_many (List.to_seq templates) factory0
 
 (* W.g(?Y, f(#0, a, 'x)) *)
 let total_term = List.hd terms
