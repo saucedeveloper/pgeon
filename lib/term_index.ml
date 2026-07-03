@@ -584,6 +584,27 @@ let retrievals_intersection (array_node: index_array_node)
   | Some result -> result
 
 
+let union_of_instanciable (map_node: index_map_node) (options: retrieval_options): term_set =
+  let term_union =
+    let get_term_set instanciable symbol =
+      if not instanciable then
+        TermSet.empty
+      else (
+        let search = SymbolKeyedMap.find_opt symbol map_node in
+        match search with
+        (* Cannot be subarray because fvar and mvar are leaves *)
+        | Some (SubArray _) -> (assert false);
+        | Some (SubLeaf term_set) -> term_set
+        | _ -> TermSet.empty
+      )
+    in
+    let fvar_set = get_term_set options.fvar_instanciable SymFvar in
+    let mvar_set = get_term_set options.mvar_instanciable SymMvar in
+    TermSet.union fvar_set mvar_set
+  in
+  term_union
+
+
 (*
 function retrieve_generalizations(map_node s, term u) returns term_set
   M := {};
@@ -597,7 +618,7 @@ function retrieve_generalizations(map_node s, term u) returns term_set
         M := set.intersect(sets);
     end if;
   end if;
-  foreach (term_set in s.where((sym, subnode) -> sym.is_instanciable() && subnode is term_set)) loop
+  foreach (term_set in s.find([Fvar, Mvar]).filter_map(match SubLeaf)) loop
     M := set.union(M, term_set);
   end loop;
   return M;
@@ -630,26 +651,7 @@ let retrieve_generalizations (index: t)
       )
       | None -> TermSet.empty
     ) in
-    let second_candidate_set = (
-      let map_node_seq: (Term_symbol.t * index_map_subnode) Seq.t =
-        SymbolKeyedMap.to_seq map_node
-      in
-      let instanciable_sets: (term_set Seq.t) =
-        let predicate ((symbol, subnode): Term_symbol.t * index_map_subnode) =
-          match subnode with
-          | SubArray _ -> None
-          | SubLeaf term_set -> (
-            if (variant_is_instanciable symbol options) then
-              Some (filter_generalizations term_set)
-            else
-              None
-          )
-        in
-        Seq.filter_map predicate map_node_seq
-      in
-      let term_union = Seq.fold_left TermSet.union TermSet.empty instanciable_sets in
-      term_union
-    ) in
+    let second_candidate_set = union_of_instanciable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
   retrieve index.root total_term
@@ -668,14 +670,15 @@ let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_s
 (*
 function retrieve_instances(map_node s, term u) returns term_set
   if (u.is_instanciable) then
-    M := set.union(s.term_sets())
+    M := set.union(s.term_sets());
   else if (s.contains(u.symbol) -> subnode) then
     if (subnode is SubLeaf term_set)
       M := term_set;
     else (SubArray subarray)
-      map_nodes_and_arg := zip(subarray.values(), args)
+      map_nodes_and_arg := zip(subarray.values(), args);
       sets := map_nodes_and_arg.map(retrieve_instances);
       M := set.union(sets);
+    end if;
   end if;
   return M;
 *)
@@ -692,7 +695,7 @@ let retrieve_instances (index: t)
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
     if term_is_instanciable term options then (
       let term_sets = get_map_term_sets map_node filter_instances in
-      Seq.fold_left TermSet.union TermSet.empty term_sets 
+      Seq.fold_left TermSet.union TermSet.empty term_sets
     ) else (
       let symbol = Term_symbol.of_term term in
       let transition_search = SymbolKeyedMap.find_opt symbol map_node in
@@ -715,7 +718,110 @@ let retrieve_instances (index: t)
   in
   retrieve index.root total_term
 
-  
+
+(*
+function retrieve_unifiable(map_node s, term u) returns term_set
+  if (u.is_instanciable) then
+    M := set.union(s.term_sets());
+  else
+    if (s.contains(u.symbol) -> subnode) then
+      if (subnode is SubLeaf term_set)
+        M := term_set;
+      else (SubArray subarray)
+        map_nodes_and_arg := zip(subarray.values(), args);
+        sets := map_nodes_and_arg.map(retrieve_unifiable);
+        M := set.union(sets);
+      end if;
+    else
+      M := {};
+    end if;
+  endif;
+  foreach (term_set in s.find([Fvar, Mvar]).filter_map(match SubLeaf)) loop
+    M := set.union(M, term_set);
+  end loop;
+*)
+
+let retrieve_unifiable (index: t)
+                       (total_term: Term.t)
+                       (options: retrieval_options) =
+  let filter_unifiable term_set =
+    let is_unifiable _term =
+      true (* TODO *)
+    in
+    TermSet.filter is_unifiable term_set
+  in
+  let rec retrieve (map_node: index_map_node) (term: Term.t) =
+    let first_candidate_set = (
+      if term_is_instanciable term options then (
+        let term_sets = get_map_term_sets map_node filter_unifiable in
+        Seq.fold_left TermSet.union TermSet.empty term_sets
+      ) else (
+        let symbol = Term_symbol.of_term term in
+        let transition_search = SymbolKeyedMap.find_opt symbol map_node in
+        match transition_search with
+        | Some map_subnode -> (
+          match map_subnode with
+          | SubLeaf term_set -> filter_unifiable term_set
+          | SubArray subarray -> (
+            let subterms = Term.get_subterms term in
+            (* Index contains array where term has subterms *)
+            assert (0 < List.length subterms);
+            retrievals_intersection subarray subterms retrieve
+          )
+        )
+        | None -> TermSet.empty
+      )
+    ) in
+    let second_candidate_set = union_of_instanciable map_node options in
+    TermSet.union first_candidate_set second_candidate_set
+  in
+  retrieve index.root total_term
+
+
+(*
+function retrieve_unifiable(map_node s, term u) returns term_set
+  if (s.contains(u.symbol) -> subnode) then
+    if (subnode is SubLeaf term_set)
+      M := term_set;
+    else (SubArray subarray)
+      map_nodes_and_arg := zip(subarray.values(), args);
+      sets := map_nodes_and_arg.map(retrieve_unifiable);
+      M := set.union(sets);
+    end if;
+  else
+    M := {};
+  end if;
+*)
+
+let retrieve_variants (index: t)
+                      (total_term: Term.t) =
+  let filter_variants term_set =
+    let is_variant _term =
+      true (* TODO *)
+    in
+    TermSet.filter is_variant term_set
+  in
+  let rec retrieve (map_node: index_map_node) (term: Term.t) = (
+    let symbol = Term_symbol.of_term term in
+    let transition_search = SymbolKeyedMap.find_opt symbol map_node in
+    match transition_search with
+    | Some map_subnode -> (
+      match map_subnode with
+      | SubLeaf term_set -> filter_variants term_set
+      | SubArray subarray -> (
+        let subterms = Term.get_subterms term in
+        (* Index contains array where term has subterms *)
+        assert (0 < List.length subterms);
+        retrievals_intersection subarray subterms retrieve
+      )
+    )
+    | None -> (
+      (* Unspecified by the algorithm *)
+      TermSet.empty
+    )
+  ) in
+  retrieve index.root total_term
+
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =
     let sequence: ('a * 'b) Seq.t = List.to_seq list in
