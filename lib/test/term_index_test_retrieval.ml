@@ -58,7 +58,15 @@ let templates = [
 ]
 
 let (terms, _factory1) = Term_utility.create_many (List.to_seq templates) Term.empty_factory
-let indexed_terms = List.take 6 (List.drop 1 terms)
+(* let indexed_terms = List.take 6 (List.drop 1 terms) *)
+let indexed_terms = [
+  List.nth terms 1;
+  List.nth terms 2;
+  List.nth terms 3;
+  List.nth terms 4;
+  List.nth terms 5;
+  List.nth terms 6;
+]
 let i_x = List.nth indexed_terms 0
 let i_Y = List.nth indexed_terms 1
 let i_f1 = List.nth indexed_terms 2
