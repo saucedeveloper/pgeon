@@ -230,7 +230,7 @@ let random_name (source: Lfsr_random.t) (name_max_length: int) ~case:case =
     else (
       match all_letters with
       | [] -> []
-      | first::rest -> (Char.Ascii.uppercase first)::rest
+      | first::rest -> (Char.uppercase_ascii first)::rest
     )
   in
   let identifier = String.of_seq (List.to_seq all_letters_capitalized_maybe) in
