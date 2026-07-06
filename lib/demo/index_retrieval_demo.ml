@@ -29,7 +29,7 @@ let () =
     x;
     y;
   ] in
-  let (term_list, _factory1) = create_many templates factory0 in
+  let (term_list, _factory1) = create_many (List.to_seq templates) factory0 in
   let terms = Array.of_list term_list in
   let indexed_terms = [
     terms.(0);
