@@ -619,7 +619,7 @@ end function
 *)
 
 let retrieve_generalizations (index: t)
-                             (total_term: Term.t)
+                             (query: Term.t)
                              (options: retrieval_options) =
   let filter_generalizations term_set =
     let is_generalization _term =
@@ -647,7 +647,7 @@ let retrieve_generalizations (index: t)
     let second_candidate_set = union_of_instantiable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
-  retrieve index.root total_term
+  retrieve index.root query
 
 
 let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_set) =
@@ -677,7 +677,7 @@ function retrieve_instances(map_node s, term u) returns term_set
 *)
 
 let retrieve_instances (index: t)
-                       (total_term: Term.t)
+                       (query: Term.t)
                        (options: retrieval_options) =
   let filter_instances term_set =
     let is_instance _term =
@@ -709,7 +709,7 @@ let retrieve_instances (index: t)
       )
     )
   in
-  retrieve index.root total_term
+  retrieve index.root query
 
 
 (*
@@ -735,7 +735,7 @@ function retrieve_unifiable(map_node s, term u) returns term_set
 *)
 
 let retrieve_unifiable (index: t)
-                       (total_term: Term.t)
+                       (query: Term.t)
                        (options: retrieval_options) =
   let filter_unifiable term_set =
     let is_unifiable _term =
@@ -768,7 +768,7 @@ let retrieve_unifiable (index: t)
     let second_candidate_set = union_of_instantiable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
-  retrieve index.root total_term
+  retrieve index.root query
 
 
 (*
@@ -787,7 +787,7 @@ function retrieve_unifiable(map_node s, term u) returns term_set
 *)
 
 let retrieve_variants (index: t)
-                      (total_term: Term.t) =
+                      (query: Term.t) =
   let filter_variants term_set =
     let is_variant _term =
       true (* TODO *)
@@ -813,7 +813,7 @@ let retrieve_variants (index: t)
       TermSet.empty
     )
   ) in
-  retrieve index.root total_term
+  retrieve index.root query
 
 let get_example_index factory0 =
   let make_map (list: ('a * 'b) list) =
