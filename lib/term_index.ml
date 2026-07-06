@@ -170,6 +170,8 @@ let add_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec add_map (node: index_map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
+    (* Insertion contains no meta variable *)
+    assert (target_symbol <> Term_symbol.SymMvar);
     let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
     let update_symbol_value search =
       match search with
@@ -327,6 +329,8 @@ let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
 let add_term (term_index: t) (total_term: Term.t) =
   let rec add_map (node: index_map_node) (current_term: Term.t) = (
     let target_symbol = Term_symbol.of_term current_term in
+    (* Insertion contains no meta variable *)
+    assert (target_symbol <> Term_symbol.SymMvar);
 
     let add_app subarray args =
       let fold_f arr arg_i =
