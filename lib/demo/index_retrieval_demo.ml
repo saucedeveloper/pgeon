@@ -61,8 +61,22 @@ let () =
   let query = terms.(1) in
 
   let instances = Term_index.retrieve_instances inserted_index query options in
-  Printf.printf "query: %s\ninstances: %s\n"
+  Printf.printf "query: %s\ninstances: %s\n\n"
     (Term.string_of query)
     (Term_index.string_of_term_set_full instances);
+
+  let query = terms.(1) in
+
+  let unifiables = Term_index.retrieve_unifiable inserted_index query options in
+  Printf.printf "query: %s\nunifiable: %s\n\n"
+    (Term.string_of query)
+    (Term_index.string_of_term_set_full unifiables);
+
+  let query = terms.(1) in
+
+  let variants = Term_index.retrieve_variants inserted_index query in
+  Printf.printf "query: %s\nvariants: %s\n"
+    (Term.string_of query)
+    (Term_index.string_of_term_set_full variants);
 
   ;;
