@@ -36,18 +36,18 @@ let _ =
   let (f4, factory12) = Term.create_app "f" [g4; b] factory11 in
   let (f5, _factory13) = Term.create_app "f" [x; x] factory12 in
   let terms = [f1; f2; f3; f4; f5] in
-  let all_pstrings = Dynarray.create () in
-  let print_term_pstrings term =
+  (* let all_pstrings = Dynarray.create () in *)
+  let print_term_pstrings term acc =
     Printf.printf "term: %s\n" (Term.string_of term);
     let pstrings = Pstring.all_of_term term in
-    Dynarray.append_list all_pstrings pstrings;
-    Printf.printf "pstrings: { %s }\n" (
+    (* Dynarray.append_list all_pstrings pstrings; *)
+    Printf.printf "pstrings: { %s }\n\n" (
       String.concat ", " (List.map Pstring.string_of pstrings)
     );
-    ()
+    pstrings @ acc
   in
-  List.iter print_term_pstrings terms;
-  let pstring_set = PstringSet.of_seq (Dynarray.to_seq all_pstrings) in
+  let all_pstrings = List.fold_right print_term_pstrings terms [] in
+  let pstring_set = PstringSet.of_seq (List.to_seq all_pstrings) in
   let string_of_pstring_set pstring_set =
     let pstring_list = PstringSet.to_list pstring_set in
     let strings = List.map Pstring.string_of pstring_list in
