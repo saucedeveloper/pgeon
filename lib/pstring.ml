@@ -49,32 +49,36 @@ t = f(            (* ^.f *)
 
 (* Make all the pstrings / root-to-leaf traversals in `term` *)
 let all_of_term (term: Term.t) =
-  let shared_path: node Dynarray.t = Dynarray.create () in
   let rec recursive (term: Term.t) (current_index: int) =
     let created_node = { index = current_index; symbol = Term_symbol.of_term term } in
-    Dynarray.add_last shared_path created_node;
+    (* Dynarray.add_last shared_path created_node; *)
     match term with
     | Term.Bvar _ | Term.Fvar _ | Term.Mvar _ | Term.App (_, []) -> (
-      let resulting_path = Dynarray.to_array shared_path in
-      Dynarray.remove_last shared_path;
-      [resulting_path]
+      (* let resulting_path = Dynarray.to_array shared_path in *)
+      (* Dynarray.remove_last shared_path; *)
+      [[created_node]]
     )
     | Term.App (_name, terms) -> (
-      let f index inner = recursive inner index in
-      let created_paths_by_term = List.mapi f terms in
-      let inner_created = List.concat created_paths_by_term in
-      Dynarray.remove_last shared_path;
-      inner_created
+      let append_recursive index inner =
+        let inner_paths = recursive inner index in
+        let inner_paths_prepended = List.map (fun inner_path -> created_node::inner_path) inner_paths in
+        inner_paths_prepended
+      in
+      let created_partial_paths = List.mapi append_recursive terms in
+      let all_partial_paths = List.concat created_partial_paths in
+      (* Dynarray.remove_last shared_path; *)
+      all_partial_paths
     )
     | Term.Bind (_name, inner) -> (
-      let inner_created = recursive inner 0 in
-      Dynarray.remove_last shared_path;
-      inner_created
+      let inner_paths = recursive inner 0 in
+      let inner_paths_prepended = List.map (fun inner_path -> created_node::inner_path) inner_paths in
+      (* Dynarray.remove_last shared_path; *)
+      inner_paths_prepended
     )
   in
-  let result = recursive term node_root_index in
-  assert ((Dynarray.length shared_path) = 0);
-  result
+  let list_of_lists: node list list = recursive term node_root_index in
+  let list_of_arrays = List.map Array.of_list list_of_lists in
+  list_of_arrays
 
 (* let get_subterm term index =
   match term with
