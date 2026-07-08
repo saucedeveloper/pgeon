@@ -19,6 +19,7 @@ let () =
   let y = tfvar "y" in
   let templates = [
     tapp "f" [a; b];
+    tapp "f" [a; x];
     tapp "f" [a; y];
     tapp "f" [x; y];
     tapp "f" [b; y];
@@ -37,6 +38,7 @@ let () =
     terms.(2);
     terms.(3);
     terms.(4);
+    terms.(5);
     terms.(8);
   ] in
 
