@@ -83,7 +83,7 @@ let string_of_term_set ?(n=4) (term_set: term_set) =
     "{}"
 
 
-let string_of_term_set_full ?(n=4) (term_set: term_set) =
+let string_of_term_set_full ?(n=4) ?(sep=", ") (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
   let string_of_term term = 
     if (0 < n) then
@@ -93,7 +93,7 @@ let string_of_term_set_full ?(n=4) (term_set: term_set) =
   in
   let strings = List.map string_of_term term_list in
   if 0 < List.length strings then
-    Printf.sprintf "{ %s }" (String.concat ", " strings)
+    Printf.sprintf "{ %s }" (String.concat sep strings)
   else
     "{}"
 

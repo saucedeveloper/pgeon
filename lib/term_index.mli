@@ -19,7 +19,7 @@ type term_set = TermSet.t
 
 val string_of_term_set : ?n:int -> term_set -> string
 
-val string_of_term_set_full : ?n:int -> term_set -> string
+val string_of_term_set_full : ?n:int -> ?sep:string -> term_set -> string
 
 type t
 
