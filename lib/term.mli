@@ -45,6 +45,9 @@ val create_bind  : name -> t -> factory -> (t * factory)
 (** Term to string recursively *)
 val string_of : t -> string
 
+(** Term to string recursively and address with n last digits *)
+val string_of_full : ?n:int -> t -> name
+
 (** Name/identifier of term (not recursive) *)
 val identifier_of : t -> string
 

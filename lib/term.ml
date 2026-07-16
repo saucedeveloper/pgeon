@@ -53,6 +53,12 @@ let string_of term =
     in
     string_of_term term
 
+let string_of_full ?(n=4) term =
+  if (0 < n) then
+    (string_of term) ^ "{@" ^ (Utils.string_address_of ~n:n term) ^ "}"
+  else
+    string_of term
+
 let identifier_of term =
   match term with
   | Bvar i -> Printf.sprintf "%d" i
