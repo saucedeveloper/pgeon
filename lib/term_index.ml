@@ -648,14 +648,35 @@ let retrieve_generalizations (index: t)
   retrieve index.root query
 
 
-let get_map_term_sets (map_node: index_map_node) (filter_set: term_set -> term_set) =
-  let is_leaf (kvp: Term_symbol.t * index_map_subnode) =
-    let (_symbol, submap) = kvp in
-    match submap with
-    | SubArray _ -> None
-    | SubLeaf term_set -> Some (filter_set term_set)
+(* Get all descendants of map_node that are term sets, in a sequence *)
+let get_map_term_set_sequence (map_node: index_map_node) =
+  let rec rec_map map_node =
+    let map (kvp: Term_symbol.t * index_map_subnode) =
+      let (_symbol, subnode) = kvp in
+      match subnode with
+      | SubArray subarray -> (
+        rec_array subarray
+      )
+      | SubLeaf term_set -> TermSet.to_seq term_set
+    in
+    let siblings = Seq.map map (SymbolKeyedMap.to_seq map_node) in
+    Seq.concat siblings
+  and rec_array array_node =
+    let fold acc kvp =
+      let (_index, map_subnode) = kvp in
+      Seq.append acc (rec_map map_subnode)
+    in
+    Seq.fold_left fold Seq.empty (SparseArray.to_seq array_node)
   in
-  Seq.filter_map is_leaf (SymbolKeyedMap.to_seq map_node)
+  rec_map map_node
+
+
+(* Get the union of all descendants of map_node that are term sets,
+filtered at the term level with filter *)
+let get_map_term_set_union (map_node: index_map_node) (filter: Term.t -> bool) =
+  let term_sequence = get_map_term_set_sequence map_node in
+  let filtered_term_sequence = Seq.filter filter term_sequence in
+  TermSet.of_seq filtered_term_sequence
 
 
 (*
@@ -677,16 +698,15 @@ function retrieve_instances(map_node s, term u) returns term_set
 let retrieve_instances (index: t)
                        (query: Term.t)
                        (options: retrieval_options) =
+  let is_instance _term =
+    true (* TODO *)
+  in
   let filter_instances term_set =
-    let is_instance _term =
-      true (* TODO *)
-    in
     TermSet.filter is_instance term_set
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
     if term_is_instantiable term options then (
-      let term_sets = get_map_term_sets map_node filter_instances in
-      Seq.fold_left TermSet.union TermSet.empty term_sets
+      get_map_term_set_union map_node is_instance
     ) else (
       let symbol = Term_symbol.of_term term in
       let transition_search = SymbolKeyedMap.find_opt symbol map_node in
@@ -735,17 +755,16 @@ function retrieve_unifiable(map_node s, term u) returns term_set
 let retrieve_unifiable (index: t)
                        (query: Term.t)
                        (options: retrieval_options) =
+  let is_unifiable _term =
+    true (* TODO *)
+  in
   let filter_unifiable term_set =
-    let is_unifiable _term =
-      true (* TODO *)
-    in
     TermSet.filter is_unifiable term_set
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
     let first_candidate_set = (
       if term_is_instantiable term options then (
-        let term_sets = get_map_term_sets map_node filter_unifiable in
-        Seq.fold_left TermSet.union TermSet.empty term_sets
+        get_map_term_set_union map_node is_unifiable
       ) else (
         let symbol = Term_symbol.of_term term in
         let transition_search = SymbolKeyedMap.find_opt symbol map_node in
