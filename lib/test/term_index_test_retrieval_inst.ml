@@ -1,6 +1,6 @@
 open Pgeon
 
-(* 
+(*
 query: f(a, W.P('x, ?Y, b), 'z)
 instances: [
   f(a, W.P(a, ?Y, b), 'z), (* F *)
@@ -9,7 +9,7 @@ instances: [
   f(a, W.P(g(?Y, c, 'z), ?Y, b), g(?Y, c, 'x)), (* F *)
 
   f(a, W.P('x, K.#1, b), 'z), (* M *)
-  f(a, W.P('x, g(?Y, c, 'z), 'z), 'z), (* M *)
+  f(a, W.P('x, g(?Y, c, 'z), b), 'z), (* M *)
   f(a, W.P('x, W.'z, b), 'z), (* M *)
 
   f(a, W.P(a, a, b), a), (* F & M *)
@@ -18,6 +18,7 @@ instances: [
   f(a, W.P('x, W.P(?Y, #0, 'z), b), 'z), (* F & M *)
 ]
 *)
+
 let t_a = Term_utility.tconst "a"  (* a *)
 let t_b = Term_utility.tconst "b"  (* b *)
 let t_c = Term_utility.tconst "c"  (* c *)
@@ -27,8 +28,8 @@ let t_x = Term_utility.tfvar "x"  (* 'x *)
 let t_z = Term_utility.tfvar "z"  (* 'z *)
 let t_Y = Term_utility.tmvar "Y"  (* ?Y *)
 let t_K = Term_utility.tbind "K" t_1  (* K.#1 *)
-let t_g1 = Term_utility.tapp "g" [t_Y; t_c; (* t_z *) t_c]  (* g(?Y, c, 'z) *)
-let t_g2 = Term_utility.tapp "g" [t_Y; t_c; (* t_x *) t_c]  (* g(?Y, c, 'x) *)
+let t_g1 = Term_utility.tapp "g" [t_Y; t_c; t_z]  (* g(?Y, c, 'z) *)
+let t_g2 = Term_utility.tapp "g" [t_Y; t_c; t_x]  (* g(?Y, c, 'x) *)
 let t_P10 = Term_utility.tapp "P" [t_Y; t_0; t_z]  (* P(?Y, #0, 'z) *)
 let t_W12 = Term_utility.tbind "W" t_z  (* W.'z *)
 let t_W13 = Term_utility.tbind "W" t_P10  (* W.P(...) *)
@@ -36,7 +37,7 @@ let t_Pq = Term_utility.tapp "P" [t_x; t_Y; t_b]  (* P('x, ?Y, b) *)
 let t_P1 = Term_utility.tapp "P" [t_a; t_Y; t_b]  (* P(a, ?Y, b) *)
 let t_P2 = Term_utility.tapp "P" [t_g1; t_Y; t_b]  (* P(g(...), ?Y, b) *)
 let t_P3 = Term_utility.tapp "P" [t_x; t_K; t_b]  (* P('x, K.#1, b) *)
-let t_P4 = Term_utility.tapp "P" [t_x; t_g1; t_z]  (* P('x, g(...), 'z) *)
+let t_P4 = Term_utility.tapp "P" [t_x; t_g1; t_b]  (* P('x, g(...), b) *)
 let t_P5 = Term_utility.tapp "P" [t_x; t_W12; t_b]  (* P('x, W.'z, b) *)
 let t_P6 = Term_utility.tapp "P" [t_a; t_a; t_b]  (* P(a, a, b) *)
 let t_P7 = Term_utility.tapp "P" [t_K; t_K; t_b]  (* P(K.#1, K.#1, b) *)
@@ -129,10 +130,10 @@ let indexed_terms = [
   List.nth terms 11;
 ]
 
-let () =
+(* let () =
   Printf.printf "indexed_terms: {\n%s\n}\n"
     (String.concat "\n" (List.map Term.string_of_full indexed_terms))
-;;
+;; *)
 
 let i_f1 = List.nth indexed_terms 0
 let i_f2 = List.nth indexed_terms 1
@@ -151,12 +152,12 @@ let instances_f = Term_index.retrieve_instances index query (Term_index.make_opt
 let instances_m = Term_index.retrieve_instances index query (Term_index.make_options ~fvar:false ~mvar:true)
 let instances_fm = Term_index.retrieve_instances index query (Term_index.make_options ~fvar:true ~mvar:true)
 
-let () =
+(* let () =
   Printf.printf "index: \n%s\n\n" (Term_index.string_of index);
   Printf.printf "instances_f: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" instances_f);
   Printf.printf "instances_m: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" instances_m);
   Printf.printf "instances_fm: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" instances_fm);
-;;
+;; *)
 
 (* Instances with fvar contains f1 *)
 let%test _ = Term_index.TermSet.mem i_f1 instances_f
