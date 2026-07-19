@@ -21,3 +21,5 @@ val string_of_bool : bool -> string
 
 (* List.fold_left_map with seq as parameter *)
 val seq_fold_left_map_to_list : ('acc -> 'a -> 'acc * 'b) -> 'acc -> 'a Seq.t -> 'acc * 'b list
+
+val debug_string_of_option : ('a -> string) -> 'a option -> string

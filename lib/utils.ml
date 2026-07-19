@@ -108,3 +108,9 @@ let seq_fold_left_map_to_list (f: 'acc -> 'a -> 'acc * 'b) (init: 'acc) (seq: 'a
     )
   in
   recursive init seq
+
+let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
+  match x with
+  | Some value -> "Some(" ^ (string_of value) ^ ")"
+  | None -> "None"
+  
