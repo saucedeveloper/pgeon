@@ -1,5 +1,5 @@
 (executable
- (name index_retrieval_demo)
+ (name term_parsing_demo)
  (public_name demo)
  (libraries pgeon)
 )
