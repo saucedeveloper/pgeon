@@ -26,8 +26,8 @@ val create_many : template Seq.t -> Term.factory -> Term.t list * Term.factory
 
 val string_of_full : ?n:int -> Term.t -> string
 
-val extract_identifier : string -> (term_id * int) option
+(* val extract_identifier : string -> (term_id * int) option *)
 
 val string_of_term_id : term_id -> string
 
-val parse : string -> Term.factory -> (Term.t * Term.factory) option
+(* val parse : string -> Term.factory -> (Term.t * Term.factory) option *)

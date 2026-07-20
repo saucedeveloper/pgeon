@@ -64,7 +64,7 @@ let string_of_term_id = function
 (* let string_append_char str chr =
   String.of_seq (Seq.append (String.to_seq str) (Seq.singleton chr)) *)
 
-let string_sub_to_end str i =
+(* let string_sub_to_end str i =
   if i < 0 || (String.length str) <= i then
     raise (Invalid_argument "index out of bounds")
   else
@@ -237,4 +237,4 @@ let parse (text: string) (factory: Term.factory): (Term.t * Term.factory) option
   let (terms, final_factory) = rec_term text factory in
   match terms with
   | single::[] -> Some (single, final_factory)
-  | _ -> None
+  | _ -> None *)
