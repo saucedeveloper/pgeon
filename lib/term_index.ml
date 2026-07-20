@@ -699,7 +699,7 @@ let retrieve_instances (index: t)
                        (query: Term.t)
                        (options: retrieval_options) =
   let is_instance _term =
-    true (* TODO *)
+    true (* TODO using Term.match_terms *)
   in
   let filter_instances term_set =
     TermSet.filter is_instance term_set
@@ -756,7 +756,11 @@ let retrieve_unifiable (index: t)
                        (query: Term.t)
                        (options: retrieval_options) =
   let is_unifiable _term =
-    true (* TODO *)
+    (* Option.is_some (Term.unify term query) *)
+    (* Note: Term.unify does not work as intended when using
+      options = { fvar:false, mvar:true }
+      for filtering *)
+    true
   in
   let filter_unifiable term_set =
     TermSet.filter is_unifiable term_set
@@ -789,13 +793,13 @@ let retrieve_unifiable (index: t)
 
 
 (*
-function retrieve_unifiable(map_node s, term u) returns term_set
+function retrieve_variants(map_node s, term u) returns term_set
   if (s.contains(u.symbol) -> subnode) then
     if (subnode is SubLeaf term_set)
       M := term_set;
     else (SubArray subarray)
       map_nodes_and_arg := zip(subarray.values(), args);
-      sets := map_nodes_and_arg.map(retrieve_unifiable);
+      sets := map_nodes_and_arg.map(retrieve_variants);
       M := set.union(sets);
     end if;
   else
