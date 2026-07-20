@@ -115,29 +115,29 @@ let variants = Term_index.retrieve_variants index query (* (Term_index.make_opti
   Printf.printf "variants: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" variants);
 ;; *)
 
-(* Instances with fvar contains f1 *)
+(* Instances contains f1 *)
 let _ = assert( Term_index.TermSet.mem i_f1 variants )
 
-(* Instances with fvar contains f2 *)
+(* Instances contains f2 *)
 let _ = assert( Term_index.TermSet.mem i_f2 variants )
 
-(* Instances with fvar contains f3 *)
+(* Instances contains f3 *)
 let _ = assert( Term_index.TermSet.mem i_f3 variants )
 
-(* Instances with mvar contains f4 *)
+(* Instances contains f4 *)
 let _ = assert( Term_index.TermSet.mem i_f4 variants )
 
-(* Instances with mvar contains f5 *)
+(* Instances contains f5 *)
 let _ = assert( Term_index.TermSet.mem i_f5 variants )
 
-(* Instances with mvar contains f6 *)
+(* Instances contains f6 *)
 let _ = assert( Term_index.TermSet.mem i_f6 variants )
 
-(* Instances with both contains f7 *)
+(* Instances contains f7 *)
 let _ = assert( Term_index.TermSet.mem i_f7 variants )
 
-(* Instances with both contains f8 *)
+(* Instances contains f8 *)
 let _ = assert( Term_index.TermSet.mem i_f8 variants )
 
-(* Instances with both contains f9 *)
+(* Instances contains f9 *)
 let _ = assert( Term_index.TermSet.mem i_f9 variants )
