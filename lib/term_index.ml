@@ -483,33 +483,6 @@ let remove_terms (term_index: t) (terms: Term.t Seq.t) =
   Seq.fold_left remove_term term_index terms
 
 
-let term_is_function (term: Term.t) =
-  let open Term in
-  let open Term_symbol in
-    match term with
-    | App (name, args) -> Some (SymApp name, args)
-    | Bind (name, arg) -> Some (SymBind name, [arg])
-    | _ -> None
-
-
-let term_is_instantiable (term: Term.t) (options: Term.substitutability) =
-  let open Term in
-    match term with
-    | Fvar _ -> options.fvar_instantiable
-    | Mvar _ -> options.mvar_instantiable
-    | _ -> false
-
-
-(* Meant for set intersection that can short circuit as soon as the accumulater becomes the empty set *)
-(* Equivalent to the follwing (assuming all transform calls return Some)
-[items: 0] -> None
-[items: 1] -> Some items.(0)
-[items: 2] -> Some (transform items.(0) items.(1))
-[items: 3] -> Some (transform (transform items.(0) items.(1)) items.(2))
-...
-[items: 3, (transform ... items.(2) returns None)] -> Some (transform items.(0) items.(1))
- *)
-
 let sequence_binary_fold_until (transform: 'acc -> 'b -> 'acc option) (initial: 'b -> 'acc) (items: 'b Seq.t): 'acc option =
   let rec recursive (acc_option: 'acc option) (remaining_items: 'b Seq.t): 'acc option =
     match remaining_items () with
@@ -568,11 +541,11 @@ let retrievals_intersection (array_node: index_array_node)
   | Some result -> result
 
 
-(* Union of instantiable *)
-let union_of_instantiable (map_node: index_map_node) (options: Term.substitutability): term_set =
+(* Union of substitutable *)
+let union_of_substitutable (map_node: index_map_node) (options: Term.substitutability): term_set =
   let term_union =
-    let get_term_set instantiable symbol =
-      if not instantiable then
+    let get_term_set substitutable symbol =
+      if not substitutable then
         TermSet.empty
       else (
         let search = SymbolKeyedMap.find_opt symbol map_node in
@@ -583,8 +556,8 @@ let union_of_instantiable (map_node: index_map_node) (options: Term.substitutabi
         | _ -> TermSet.empty
       )
     in
-    let fvar_set = get_term_set options.fvar_instantiable SymFvar in
-    let mvar_set = get_term_set options.mvar_instantiable SymMvar in
+    let fvar_set = get_term_set options.fvar SymFvar in
+    let mvar_set = get_term_set options.mvar SymMvar in
     TermSet.union fvar_set mvar_set
   in
   term_union
@@ -594,7 +567,7 @@ let union_of_instantiable (map_node: index_map_node) (options: Term.substitutabi
 function retrieve_generalizations(map_node s, term u) returns term_set
   M := {};
   if (u.is_function() -> (symbol, args)) then
-    if (s.contains(u.symbol) -> subnode) then
+    if (s.contains(u.symbol) => let subnode) then
       if (subnode is SubLeaf term_set)
         M := term_set;
       else (SubArray subarray)
@@ -615,13 +588,14 @@ let retrieve_generalizations (index: t)
                              (options: Term.substitutability) =
   let filter_generalizations term_set =
     let is_generalization _term =
-      true (* TODO *)
+      true
+      (* TODO: implement the predicate: term is a generalization of query *)
     in
     TermSet.filter is_generalization term_set
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
     let first_candidate_set: term_set = (
-      match term_is_function term with
+      match Term_symbol.is_function term with
       | Some (symbol, args) -> (
         let transition_search = SymbolKeyedMap.find_opt symbol map_node in
         match transition_search with
@@ -636,7 +610,7 @@ let retrieve_generalizations (index: t)
       )
       | None -> TermSet.empty
     ) in
-    let second_candidate_set = union_of_instantiable map_node options in
+    let second_candidate_set = union_of_substitutable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
   retrieve index.root query
@@ -675,9 +649,9 @@ let get_map_term_set_union (map_node: index_map_node) (filter: Term.t -> bool) =
 
 (*
 function retrieve_instances(map_node s, term u) returns term_set
-  if (u.is_instantiable) then
+  if (u.is_substitutable) then
     M := set.union(s.term_sets());
-  else if (s.contains(u.symbol) -> subnode) then
+  else if (s.contains(u.symbol) => let subnode) then
     if (subnode is SubLeaf term_set)
       M := term_set;
     else (SubArray subarray)
@@ -693,13 +667,15 @@ let retrieve_instances (index: t)
                        (query: Term.t)
                        (options: Term.substitutability) =
   let is_instance _term =
-    true (* TODO using Term.match_terms *)
+    true
+    (* TODO: implement the predicate: term is an
+    instance of query (using Term.match_terms) *)
   in
   let filter_instances term_set =
     TermSet.filter is_instance term_set
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
-    if term_is_instantiable term options then (
+    if Term.is_substitutable term options then (
       get_map_term_set_union map_node is_instance
     ) else (
       let symbol = Term_symbol.of_term term in
@@ -726,10 +702,10 @@ let retrieve_instances (index: t)
 
 (*
 function retrieve_unifiable(map_node s, term u) returns term_set
-  if (u.is_instantiable) then
+  if (u.is_substitutable) then
     M := set.union(s.term_sets());
   else
-    if (s.contains(u.symbol) -> subnode) then
+    if (s.contains(u.symbol) => let subnode) then
       if (subnode is SubLeaf term_set)
         M := term_set;
       else (SubArray subarray)
@@ -750,8 +726,11 @@ let retrieve_unifiable (index: t)
                        (query: Term.t)
                        (options: Term.substitutability) =
   let is_unifiable _term =
-    (* Option.is_some (Term.unify term query) *)
-    (* Note: Term.unify does not work as intended when using
+    (* TODO: implement the predicate: term is unifiable with query
+      Probably as shown below:
+      Option.is_some (Term.unify term query options)
+
+    Note: Term.unify does not work as intended when using
       options = { fvar:false, mvar:true }
       for filtering *)
     true
@@ -761,7 +740,7 @@ let retrieve_unifiable (index: t)
   in
   let rec retrieve (map_node: index_map_node) (term: Term.t) =
     let first_candidate_set = (
-      if term_is_instantiable term options then (
+      if Term.is_substitutable term options then (
         get_map_term_set_union map_node is_unifiable
       ) else (
         let symbol = Term_symbol.of_term term in
@@ -780,7 +759,7 @@ let retrieve_unifiable (index: t)
         | None -> TermSet.empty
       )
     ) in
-    let second_candidate_set = union_of_instantiable map_node options in
+    let second_candidate_set = union_of_substitutable map_node options in
     TermSet.union first_candidate_set second_candidate_set
   in
   retrieve index.root query
@@ -788,7 +767,7 @@ let retrieve_unifiable (index: t)
 
 (*
 function retrieve_variants(map_node s, term u) returns term_set
-  if (s.contains(u.symbol) -> subnode) then
+  if (s.contains(u.symbol) => let subnode) then
     if (subnode is SubLeaf term_set)
       M := term_set;
     else (SubArray subarray)
@@ -805,7 +784,8 @@ let retrieve_variants (index: t)
                       (query: Term.t) =
   let filter_variants term_set =
     let is_variant _term =
-      true (* TODO *)
+      true
+      (* TODO: implement the predicate: term is a variant of query *)
     in
     TermSet.filter is_variant term_set
   in
