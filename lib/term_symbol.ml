@@ -28,3 +28,10 @@ let string_of (symbol: t) =
   | SymMvar -> "??"
   | SymApp name -> name
   | SymBind name -> "~" ^ name
+
+let is_function (term: Term.t) =
+  let open Term in
+    match term with
+    | App (name, args) -> Some (SymApp name, args)
+    | Bind (name, arg) -> Some (SymBind name, [arg])
+    | _ -> None

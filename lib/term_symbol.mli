@@ -11,3 +11,5 @@ val string_of_variant : t -> string
 val of_term : Term.t -> t
 
 val string_of : t -> string
+
+val is_function : Term.t -> (t * Term.t list) option
