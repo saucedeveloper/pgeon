@@ -20,4 +20,6 @@ val insert_term : t -> Term.t -> unit
 (* Remove all pstrings of a term from the index *)
 val remove_term : t -> Term.t -> unit
 
-val get_example_index : Term.factory -> (t * Term.t list * Term.factory)
+val insert_terms : t -> (Term.t Seq.t) -> unit
+
+val remove_terms : t -> (Term.t Seq.t) -> unit

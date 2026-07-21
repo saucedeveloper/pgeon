@@ -67,5 +67,3 @@ val retrieve_unifiable : t -> Term.t -> Term.substitutability -> term_set
 
 (* All variants of this term contained in the index *)
 val retrieve_variants : t -> Term.t -> term_set
-
-val get_example_index : Term.factory -> (t * Term.t list * Term.factory)
