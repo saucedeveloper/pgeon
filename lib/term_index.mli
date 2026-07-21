@@ -29,25 +29,10 @@ val empty : t
 
 val is_empty : t -> bool
 
-(* Add a pstring that corresponds to a term to the index *)
-val add_pstring : t -> Pstring.t -> Term.t -> t
-
-(* Remove a pstring that corresponds to a term from the index *)
-val remove_pstring : t -> Pstring.t -> Term.t -> t
-
-(* Add multiple pstrings that corresponds to a term to the index *)
-val add_pstrings : t -> Pstring.t Seq.t -> Term.t -> t
-
-(* Remove multiple pstrings that corresponds to a term from the index *)
-val remove_pstrings : t -> Pstring.t Seq.t -> Term.t -> t
-
-(* Find the term set corresponding to the pstring *)
-val find_pstring : t -> Pstring.t -> term_set option
-
-(* Add all pstrings of a term to the index *)
+(* Add all path-strings of a term to the index *)
 val add_term : t -> Term.t -> t
 
-(* Remove all pstrings of a term from the index *)
+(* Remove all path-strings of a term from the index *)
 val remove_term : t -> Term.t -> t
 
 (* Add multiple terms to the index *)
@@ -55,6 +40,8 @@ val add_terms : t -> Term.t Seq.t -> t
 
 (* Remove multiple terms from the index *)
 val remove_terms : t -> Term.t Seq.t -> t
+
+val contains_term : t -> Term.t -> bool
 
 (* All generalizations of this term contained in the index *)
 val retrieve_generalizations : t -> Term.t -> Term.substitutability -> term_set

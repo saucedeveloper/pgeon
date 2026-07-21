@@ -8,18 +8,14 @@ val create : ?capacity:int -> unit -> t
 
 val is_empty : t -> bool
 
-(* Insert a pstring that corresponds to a term in the index *)
-val insert_pstring : t -> Pstring.t -> Term.t -> unit
-
-(* Remove a pstring that corresponds to a term from the index *)
-val remove_pstring : t -> Pstring.t -> Term.t -> unit
-
-(* Insert all pstrings of a term in the index *)
+(* Insert all path-strings of a term in the index *)
 val insert_term : t -> Term.t -> unit
 
-(* Remove all pstrings of a term from the index *)
+(* Remove all path-strings of a term from the index *)
 val remove_term : t -> Term.t -> unit
 
+(* Insert multiple terms to the index *)
 val insert_terms : t -> (Term.t Seq.t) -> unit
 
+(* Remove multiple terms from the index *)
 val remove_terms : t -> (Term.t Seq.t) -> unit
