@@ -16,45 +16,20 @@ associative data structure to a linear one that would benefit
 strongly from constant time access, such as Array.
 *)
 
-module IndexLeafTermSet = Hashtbl.Make(
-  struct
-    (* Key type *)
-    type t = Term.t
-    let equal = Term.term_equal
-    let hash = Hashtbl.hash
-  end
-)
+(* Module for Set implementation *)
+module IdComparableTerm = struct
+  type t = Term.t
+  let compare a b = Stdlib.compare a b
+end
 
-type term_set = unit IndexLeafTermSet.t
+(* Set of terms on a leaf of the index *)
+module TermSet = Set.Make(IdComparableTerm)
 
-
-let term_set_add (term_set: term_set) (term: Term.t) =
-  IndexLeafTermSet.replace term_set term ();
-  ()
-
-
-let term_set_remove (term_set: term_set) (term: Term.t) =
-  IndexLeafTermSet.remove term_set term;
-  ()
-
-
-let term_set_singleton ?(capacity=8) (term: Term.t) =
-  let created_term_set = IndexLeafTermSet.create capacity in
-  IndexLeafTermSet.add created_term_set term ();
-  created_term_set
-
-
-let term_set_of_list (terms: Term.t list) =
-  let add_unit term = (term, ()) in
-  IndexLeafTermSet.of_seq (List.to_seq (List.map add_unit terms))
-
-
-let term_set_mem (term_set: term_set) (term: Term.t) =
-  IndexLeafTermSet.mem term_set term
+type term_set = TermSet.t
 
 
 let string_of_term_set (term_set: term_set) =
-  let term_list = List.of_seq (IndexLeafTermSet.to_seq_keys term_set) in
+  let term_list = List.of_seq (TermSet.to_seq term_set) in
   let string_of_term term = Utils.string_address_of term in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
@@ -165,7 +140,7 @@ let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
     | None -> (
       (* Create the subnode and add it to the hash table *)
       if pstring_at_end then (
-        let new_subnode = SubLeaf (term_set_singleton term) in
+        let new_subnode = SubLeaf (TermSet.singleton term) in
         Hashtbl.add node target_symbol new_subnode;
         ()
       ) else (
@@ -190,9 +165,9 @@ let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
         insert_array subarray (pstring_i + 1)
       )
       | SubLeaf term_set -> (
-        assert (not (term_set_mem term_set term)); (* term is not already in *)
+        assert (not (TermSet.mem term_set term)); (* term is not already in *)
         assert (pstring_at_end);
-        assert (term_set_mem term_set term); (* term is added *)
+        assert (TermSet.mem term_set term); (* term is added *)
         term_set_add term_set term;
         ()
       )
@@ -281,7 +256,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
       match current_term with
       | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
         (* New leaf with term *)
-        Hashtbl.add node target_symbol (SubLeaf (term_set_singleton total_term));
+        Hashtbl.add node target_symbol (SubLeaf (TermSet.singleton total_term));
         ()
       )
       | App (_name, args) -> (
@@ -328,9 +303,9 @@ let insert_term (term_index: t) (total_term: Term.t) =
       | SubLeaf term_set -> (
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
-          assert (not (term_set_mem term_set total_term)); (* term is not already in *)
+          assert (not (TermSet.mem term_set total_term)); (* term is not already in *)
           term_set_add term_set total_term;
-          assert (term_set_mem term_set total_term); (* term is added *)
+          assert (TermSet.mem term_set total_term); (* term is added *)
           ()
         )
         | App (_, _) | Bind (_, _) ->
@@ -404,9 +379,9 @@ let remove_term (term_index: t) (total_term: Term.t) =
       | SubLeaf term_set -> (
         match current_term with
         | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> (
-          assert (term_set_mem term_set total_term); (* term is present *)
+          assert (TermSet.mem term_set total_term); (* term is present *)
           term_set_remove term_set total_term;
-          assert (not (term_set_mem term_set total_term)); (* term is removed *)
+          assert (not (TermSet.mem term_set total_term)); (* term is removed *)
           if (IndexLeafTermSet.length term_set) = 0 then (
             map_node_remove node target_symbol;
             assert (not (Hashtbl.mem node target_symbol)); (* empty set is removed *)
