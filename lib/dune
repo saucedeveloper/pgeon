@@ -3,3 +3,8 @@
  (inline_tests)
  (preprocess (pps ppx_inline_test))
 )
+
+; Version without ppx_inline_test
+; (library
+;  (name pgeon)
+; )
