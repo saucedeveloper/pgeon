@@ -96,9 +96,9 @@ let i_f8 = List.nth indexed_terms 7
 let i_f9 = List.nth indexed_terms 8
 let query = List.hd terms
 let index = Term_index.add_terms Term_index.empty (List.to_seq indexed_terms)
-let unifiable_f = Term_index.retrieve_unifiable index query (Term_index.make_options ~fvar:true ~mvar:false)
-let unifiable_m = Term_index.retrieve_unifiable index query (Term_index.make_options ~fvar:false ~mvar:true)
-let unifiable_fm = Term_index.retrieve_unifiable index query (Term_index.make_options ~fvar:true ~mvar:true)
+let unifiable_f = Term_index.retrieve_unifiable index query (Term.make_substitutability ~fvar:true ~mvar:false)
+let unifiable_m = Term_index.retrieve_unifiable index query (Term.make_substitutability ~fvar:false ~mvar:true)
+let unifiable_fm = Term_index.retrieve_unifiable index query (Term.make_substitutability ~fvar:true ~mvar:true)
 
 (* let () =
   Printf.printf "index: \n%s\n\n" (Term_index.string_of index);

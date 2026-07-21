@@ -34,6 +34,11 @@ type factory = {
   set : FactoryTermSet.t;
 }
 
+type substitutability = {
+  fvar : bool;
+  mvar : bool;
+}
+
 (* Empty factory *)
 let empty_factory = {
   set = FactoryTermSet.empty
@@ -155,6 +160,11 @@ let debug_string_of_factory ?(address_digits = 4) factory =
     let term_string_list = List.map (recursive 0) term_list in
     "{ " ^ (String.concat ", " term_string_list) ^ " }"
 
+let make_substitutability ~(fvar:bool) ~(mvar:bool): Term.substitutability = {
+  fvar = fvar;
+  mvar = mvar;
+}
+
 let var_open t u =
   let rec aux k = function
     | Bvar i -> if i = k then u else Bvar i
@@ -172,7 +182,10 @@ let substitute (MetaSubstitution sigma) t =
     match t with
     | Bvar _ | Fvar _ -> t
     | Mvar m -> (
-        match List.assoc_opt m sigma with None -> t | Some bound -> go bound)
+      match List.assoc_opt m sigma with
+      | None -> t
+      | Some bound -> go bound
+    )
     | App (f, args) -> App (f, List.map go args)
     | Bind (b, body) -> Bind (b, go body)
   in
@@ -209,38 +222,47 @@ let free_substitute (FreeSubstitution sigma) t =
     match t with
     | Bvar _ | Mvar _ -> t
     | Fvar x -> (
-        match List.assoc_opt x sigma with None -> t | Some bound -> go bound)
+      match List.assoc_opt x sigma with
+      | None -> t
+      | Some bound -> go bound
+    )
     | App (f, args) -> App (f, List.map go args)
     | Bind (b, body) -> Bind (b, go body)
   in
   go t
 
-let unify t1 t2 =
+(* Support for Mvar substitutability is not done *)
+let unify (t1: t) (t2: t) (substitutable: substitutability) =
   let rec occurs x = function
-    | Bvar _ | Mvar _ -> false
-    | Fvar y -> x = y
+    | Bvar _ -> false
+    | Fvar y -> if substitutable.fvar then x = y else false
+    | Mvar y -> if substitutable.mvar then x = y else false
     | App (_, args) -> List.exists (occurs x) args
     | Bind (_, body) -> occurs x body
   in
   let rec go (subst : substitution) = function
     | [] -> Some subst
     | (s, t) :: tl -> (
-        let s, t =
-          ( free_substitute (FreeSubstitution subst) s,
-            free_substitute (FreeSubstitution subst) t )
-        in
-        if s = t then go subst tl
-        else
-          match (s, t) with
-          | Fvar x, t | t, Fvar x ->
-              if occurs x t then None else go ((x, t) :: subst) tl
-          | Bvar x, Bvar y when x = y -> go subst tl
-          | Mvar x, Mvar y when x = y -> go subst tl
-          | App (f1, args1), App (f2, args2)
-            when f1 = f2 && List.length args1 = List.length args2 ->
-              go subst (List.combine args1 args2 @ tl)
-          | Bind (b1, body1), Bind (b2, body2) when b1 = b2 ->
-              go subst ((body1, body2) :: tl)
-          | _ -> None)
+      let s, t =
+        ( free_substitute (FreeSubstitution subst) s,
+          free_substitute (FreeSubstitution subst) t )
+      in
+      if s = t then go subst tl
+      else
+        match (s, t) with
+        | FVar x, FVar y when x = y -> go subst tl
+        | Bvar x, Bvar y when x = y -> go subst tl
+        | Mvar x, Mvar y when x = y -> go subst tl
+        | Fvar x, t | t, Fvar x ->
+            if substitutable.fvar && occurs x t then None else go ((x, t) :: subst) tl
+        | Mvar x, t | t, Mvar x ->
+            if substitutable.mvar && occurs x t then None else go ((x, t) :: subst) tl
+        | App (f1, args1), App (f2, args2)
+          when f1 = f2 && List.length args1 = List.length args2 ->
+            go subst (List.combine args1 args2 @ tl)
+        | Bind (b1, body1), Bind (b2, body2) when b1 = b2 ->
+            go subst ((body1, body2) :: tl)
+        | _ -> None
+    )
   in
   go [] [ (t1, t2) ] |> Option.map (fun sigma -> FreeSubstitution sigma)

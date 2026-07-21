@@ -18,6 +18,11 @@ type variant =
 
 type factory
 
+type substitutability = {
+  fvar : bool;
+  mvar : bool;
+}
+
 type t_alias = t
 
 module FactoryTerm : sig
@@ -58,6 +63,8 @@ val term_compare : t -> t -> int
 
 (** Term equality comparison: a = b assuming they are from the same factory *)
 val term_equal : t -> t -> bool
+
+val make_substitutability : fvar:bool mvar:bool: Term.substitutability
 
 val var_open : t -> t -> t
 

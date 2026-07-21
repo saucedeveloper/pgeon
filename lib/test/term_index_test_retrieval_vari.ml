@@ -108,7 +108,7 @@ let i_f8 = List.nth indexed_terms 7
 let i_f9 = List.nth indexed_terms 8
 let query = List.hd terms
 let index = Term_index.add_terms Term_index.empty (List.to_seq indexed_terms)
-let variants = Term_index.retrieve_variants index query (* (Term_index.make_options ~fvar:true ~mvar:false) *)
+let variants = Term_index.retrieve_variants index query (* (Term.make_substitutability ~fvar:true ~mvar:false) *)
 
 (* let () =
   Printf.printf "index: \n%s\n\n" (Term_index.string_of index);

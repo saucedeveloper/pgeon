@@ -83,11 +83,6 @@ type t = {
   root: index_map_node;
 }
 
-type retrieval_options = {
-  fvar_instantiable : bool;
-  mvar_instantiable : bool;
-}
-
 
 let string_of_term_set ?(n=4) (term_set: term_set) =
   let term_list = TermSet.to_list term_set in
@@ -488,12 +483,6 @@ let remove_terms (term_index: t) (terms: Term.t Seq.t) =
   Seq.fold_left remove_term term_index terms
 
 
-let make_options ~(fvar:bool) ~(mvar:bool): retrieval_options = {
-  fvar_instantiable = fvar;
-  mvar_instantiable = mvar;
-}
-
-
 let term_is_function (term: Term.t) =
   let open Term in
   let open Term_symbol in
@@ -503,7 +492,7 @@ let term_is_function (term: Term.t) =
     | _ -> None
 
 
-let term_is_instantiable (term: Term.t) (options: retrieval_options) =
+let term_is_instantiable (term: Term.t) (options: Term.substitutability) =
   let open Term in
     match term with
     | Fvar _ -> options.fvar_instantiable
@@ -580,7 +569,7 @@ let retrievals_intersection (array_node: index_array_node)
 
 
 (* Union of instantiable *)
-let union_of_instantiable (map_node: index_map_node) (options: retrieval_options): term_set =
+let union_of_instantiable (map_node: index_map_node) (options: Term.substitutability): term_set =
   let term_union =
     let get_term_set instantiable symbol =
       if not instantiable then
@@ -623,7 +612,7 @@ end function
 
 let retrieve_generalizations (index: t)
                              (query: Term.t)
-                             (options: retrieval_options) =
+                             (options: Term.substitutability) =
   let filter_generalizations term_set =
     let is_generalization _term =
       true (* TODO *)
@@ -702,7 +691,7 @@ function retrieve_instances(map_node s, term u) returns term_set
 
 let retrieve_instances (index: t)
                        (query: Term.t)
-                       (options: retrieval_options) =
+                       (options: Term.substitutability) =
   let is_instance _term =
     true (* TODO using Term.match_terms *)
   in
@@ -759,7 +748,7 @@ function retrieve_unifiable(map_node s, term u) returns term_set
 
 let retrieve_unifiable (index: t)
                        (query: Term.t)
-                       (options: retrieval_options) =
+                       (options: Term.substitutability) =
   let is_unifiable _term =
     (* Option.is_some (Term.unify term query) *)
     (* Note: Term.unify does not work as intended when using

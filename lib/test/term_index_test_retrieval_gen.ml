@@ -75,9 +75,9 @@ let i_f3 = List.nth indexed_terms 4
 let i_f4 = List.nth indexed_terms 5
 let query = List.hd terms
 let index = Term_index.add_terms Term_index.empty (List.to_seq indexed_terms)
-let generalizations_f = Term_index.retrieve_generalizations index query (Term_index.make_options ~fvar:true ~mvar:false)
-let generalizations_m = Term_index.retrieve_generalizations index query (Term_index.make_options ~fvar:false ~mvar:true)
-let generalizations_fm = Term_index.retrieve_generalizations index query (Term_index.make_options ~fvar:true ~mvar:true)
+let generalizations_f = Term_index.retrieve_generalizations index query (Term.make_substitutability ~fvar:true ~mvar:false)
+let generalizations_m = Term_index.retrieve_generalizations index query (Term.make_substitutability ~fvar:false ~mvar:true)
+let generalizations_fm = Term_index.retrieve_generalizations index query (Term.make_substitutability ~fvar:true ~mvar:true)
 
 (* Generalizations with fvar contains 'x *)
 let%test _ = Term_index.TermSet.mem i_x generalizations_f

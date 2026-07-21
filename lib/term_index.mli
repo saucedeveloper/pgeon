@@ -23,11 +23,6 @@ val string_of_term_set_full : ?n:int -> ?sep:string -> term_set -> string
 
 type t
 
-type retrieval_options = {
-  fvar_instantiable : bool;
-  mvar_instantiable : bool;
-}
-
 val string_of : ?indent_pattern:string -> ?indent_level:int -> t -> string
 
 val empty : t
@@ -55,8 +50,6 @@ val add_term : t -> Term.t -> t
 (* Remove all pstrings of a term from the index *)
 val remove_term : t -> Term.t -> t
 
-val make_options : fvar:bool -> mvar:bool -> retrieval_options
-
 (* Add multiple terms to the index *)
 val add_terms : t -> Term.t Seq.t -> t
 
@@ -64,13 +57,13 @@ val add_terms : t -> Term.t Seq.t -> t
 val remove_terms : t -> Term.t Seq.t -> t
 
 (* All generalizations of this term contained in the index *)
-val retrieve_generalizations : t -> Term.t -> retrieval_options -> term_set
+val retrieve_generalizations : t -> Term.t -> Term.substitutability -> term_set
 
 (* All instances of this term contained in the index *)
-val retrieve_instances : t -> Term.t -> retrieval_options -> term_set
+val retrieve_instances : t -> Term.t -> Term.substitutability -> term_set
 
 (* All terms unifiable with this term contained in the index *)
-val retrieve_unifiable : t -> Term.t -> retrieval_options -> term_set
+val retrieve_unifiable : t -> Term.t -> Term.substitutability -> term_set
 
 (* All variants of this term contained in the index *)
 val retrieve_variants : t -> Term.t -> term_set
