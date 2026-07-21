@@ -64,7 +64,9 @@ val term_compare : t -> t -> int
 (** Term equality comparison: a = b assuming they are from the same factory *)
 val term_equal : t -> t -> bool
 
-val make_substitutability : fvar:bool mvar:bool: Term.substitutability
+val make_substitutability : fvar:bool -> mvar:bool -> substitutability
+
+val is_substitutable : t -> substitutability -> bool
 
 val var_open : t -> t -> t
 
@@ -77,4 +79,4 @@ val match_terms : t list -> t list -> meta_substitution option
 type free_substitution = FreeSubstitution of substitution
 
 val free_substitute : free_substitution -> t -> t
-val unify : t -> t -> free_substitution option
+val unify : t -> t -> substitutability -> free_substitution option

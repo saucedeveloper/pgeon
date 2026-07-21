@@ -160,10 +160,16 @@ let debug_string_of_factory ?(address_digits = 4) factory =
     let term_string_list = List.map (recursive 0) term_list in
     "{ " ^ (String.concat ", " term_string_list) ^ " }"
 
-let make_substitutability ~(fvar:bool) ~(mvar:bool): Term.substitutability = {
+let make_substitutability ~(fvar:bool) ~(mvar:bool): substitutability = {
   fvar = fvar;
   mvar = mvar;
 }
+
+let is_substitutable (term: t) (options: substitutability) =
+  match term with
+  | Fvar _ -> options.fvar
+  | Mvar _ -> options.mvar
+  | _ -> false
 
 let var_open t u =
   let rec aux k = function
@@ -250,7 +256,7 @@ let unify (t1: t) (t2: t) (substitutable: substitutability) =
       if s = t then go subst tl
       else
         match (s, t) with
-        | FVar x, FVar y when x = y -> go subst tl
+        | Fvar x, Fvar y when x = y -> go subst tl
         | Bvar x, Bvar y when x = y -> go subst tl
         | Mvar x, Mvar y when x = y -> go subst tl
         | Fvar x, t | t, Fvar x ->
