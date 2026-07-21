@@ -23,6 +23,22 @@ t = f('x, exists.(P(?z)), 'y, P(?z))
             {t}
 *)
 
+(*
+Notes: add_pstring was developped first, as it matched the
+thinking explained in the Handbook of Automated Reasoning.
+Then was proposed the idea of inserting terms directly
+without generating path-strings, which gave birth to
+add_term. A consequence of being able to insert path-strings
+one by one is that array-like nodes (states with integer
+labelled transitions) must be able to contain index keys that
+may not be contiguous. As a result, the Map data structure
+was chosen. If path-string insertion is not needed, then only
+term insertion (which can create values for all keys at once)
+could remain, allowing for a change from an associative data
+structure to a linear one that would benefit strongly from
+constant time access, such as Array.
+*)
+
 (* Module for Set implementation *)
 module IdComparableTerm = struct
   type t = Term.t
@@ -136,17 +152,6 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
     )
   in
   rec_map term_index.root indent_level
-
-
-(* let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
-  match x with
-  | Some value -> "Some(" ^ (string_of value) ^ ")"
-  | None -> "None" *)
-
-(* let string_of_option_variant (x: 'a option) =
-  match x with
-  | Some _ -> "Some"
-  | None -> "None" *)
 
 
 let empty = { root = SymbolKeyedMap.empty }

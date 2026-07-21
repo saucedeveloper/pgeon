@@ -1,5 +1,21 @@
 (* Mutable implementation of a term index *)
 
+(*
+Notes: insert_pstring was developped first, as it matched the
+thinking explained in the Handbook of Automated Reasoning.
+Then was proposed the idea of inserting terms directly
+without generating path-strings, which gave birth to
+insert_term. A consequence of being able to insert
+path-strings one by one is that array-like nodes (states with
+integer labelled transitions) must be able to contain index
+keys that may not be contiguous. As a result, the Hashtbl
+data structure was chosen. If path-string insertion is not
+needed, then only term insertion (which can create values for
+all keys at once) could remain, allowing for a change from an
+associative data structure to a linear one that would benefit
+strongly from constant time access, such as Array.
+*)
+
 module IndexLeafTermSet = Hashtbl.Make(
   struct
     (* Key type *)
@@ -11,31 +27,38 @@ module IndexLeafTermSet = Hashtbl.Make(
 
 type term_set = unit IndexLeafTermSet.t
 
+
 let term_set_add (term_set: term_set) (term: Term.t) =
   IndexLeafTermSet.replace term_set term ();
   ()
 
+
 let term_set_remove (term_set: term_set) (term: Term.t) =
   IndexLeafTermSet.remove term_set term;
   ()
+
 
 let term_set_singleton ?(capacity=8) (term: Term.t) =
   let created_term_set = IndexLeafTermSet.create capacity in
   IndexLeafTermSet.add created_term_set term ();
   created_term_set
 
+
 let term_set_of_list (terms: Term.t list) =
   let add_unit term = (term, ()) in
   IndexLeafTermSet.of_seq (List.to_seq (List.map add_unit terms))
 
+
 let term_set_mem (term_set: term_set) (term: Term.t) =
   IndexLeafTermSet.mem term_set term
+
 
 let string_of_term_set (term_set: term_set) =
   let term_list = List.of_seq (IndexLeafTermSet.to_seq_keys term_set) in
   let string_of_term term = Utils.string_address_of term in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
+
 
 (* Node that contains subnodes based on argument position *)
 type array_node = (int, map_node) Hashtbl.t
@@ -52,25 +75,32 @@ type t = {
   root: map_node;
 }
 
+
 let array_node_create ?(capacity=8) () = Hashtbl.create capacity
+
 
 let array_node_replace (container: array_node) (index: int) (map_node: map_node) =
   Hashtbl.replace container index map_node;
   ()
 
+
 let array_node_remove (container: array_node) (index: int) =
   Hashtbl.remove container index;
   ()
+
 
 let array_node_make (map_nodes: map_node list) =
   let pair_with_index i node = (i, node) in
   Hashtbl.of_seq (List.to_seq (List.mapi pair_with_index map_nodes))
 
+
 let map_node_create ?(capacity=8) () = Hashtbl.create capacity
+
 
 let map_node_remove (container: map_node) (symbol: Term_symbol.t) =
   Hashtbl.remove container symbol;
   ()
+
 
 let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   let rec rec_array (current: array_node) (depth: int) =
@@ -117,15 +147,13 @@ let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
   in
   rec_map term_index.root indent_level
 
-(* let debug_string_of_option (string_of: 'a -> string) (x: 'a option) =
-  match x with
-  | Some value -> "Some(" ^ (string_of value) ^ ")"
-  | None -> "None" *)
 
 let create ?(capacity=8) () =
   { root = Hashtbl.create capacity }
 
+
 let is_empty index = 0 = Hashtbl.length index.root
+
 
 let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec insert_map (node: map_node) (pstring_i: int) =
@@ -188,6 +216,7 @@ let insert_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   in
   insert_map term_index.root 0
 
+
 let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
   let rec remove_map (node: map_node) (pstring_i: int) =
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
@@ -240,6 +269,7 @@ let remove_pstring (term_index: t) (pstring: Pstring.t) (term: Term.t) =
     | None -> (assert (false);)
   in
   remove_map term_index.root 0
+
 
 let insert_term (term_index: t) (total_term: Term.t) =
   let rec insert_map (node: map_node) (current_term: Term.t) = (
@@ -330,6 +360,7 @@ let insert_term (term_index: t) (total_term: Term.t) =
   insert_map term_index.root total_term;
   ()
 
+
 let remove_term (term_index: t) (total_term: Term.t) =
   let rec remove_map (node: map_node) (current_term: Term.t) = (
     let target_symbol = Term_symbol.of_term current_term in
@@ -405,6 +436,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
 
   remove_map term_index.root total_term;
   ()
+
 
 let get_example_index factory0 =
   let make_hashtbl (list: ('a * 'b) list) =
