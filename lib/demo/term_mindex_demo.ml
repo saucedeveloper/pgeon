@@ -1,3 +1,6 @@
+(* Deprected since the removal of Term_index.get_example_index
+(commit: 68f41a0c27d6916d2c2bcbc7cd073407f6b8611b) *)
+
 (* Test the insertion of terms in the mutable index *)
 
 (* pgeon/lib $
