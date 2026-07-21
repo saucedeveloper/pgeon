@@ -44,6 +44,10 @@ let term_set_singleton ?(capacity=8) (term: Term.t) =
   created_term_set
 
 
+(* let term_set_create ?(capacity=8) () =
+  IndexLeafTermSet.create capacity *)
+
+
 let term_set_of_list (terms: Term.t list) =
   let add_unit term = (term, ()) in
   IndexLeafTermSet.of_seq (List.to_seq (List.map add_unit terms))
@@ -437,6 +441,87 @@ let remove_term (term_index: t) (total_term: Term.t) =
   remove_map term_index.root total_term;
   ()
 
+
+let insert_terms (term_index: t) (terms: Term.t Seq.t) =
+  Seq.iter (insert_term term_index) terms
+
+
+let remove_terms (term_index: t) (terms: Term.t Seq.t) =
+  Seq.iter (remove_term term_index) terms
+
+
+(* let hashtbl_inter_inplace t1 t2 =
+  let existing_in_t2 key value =
+    match Hashtbl.find_opt t2 key with
+    | Some _ -> Some value
+    | None -> None
+  in
+  Hashtbl.filter_map_inplace existing_in_t2 t1
+
+
+let hashtbl_union_inplace t1 t2 =
+  let replace_in_t1 k v = Hashtbl.replace t1 k v in
+  Hashtbl.iter replace_in_t1 t2 *)
+
+
+(* let sequence_iter_until (f: 'a -> int -> bool) (seq: 'a Seq.t) =
+  let rec recursive remaining depth =
+    match remaining () with
+    | Seq.Nil -> ()
+    | Seq.Cons (current, new_remaining) -> (
+      let continue = f current depth in
+      if continue then
+        recursive new_remaining (depth + 1)
+      else
+        ()
+    )
+  in
+  recursive seq 0 *)
+
+
+(* The intersection of calls to `retrieve` for each entry in `array_node` alongside `args`
+let retrievals_intersection (array_node: array_node)
+                            (args: Term.t list)
+                            (retrieve: map_node -> Term.t -> term_set) =
+  (* The array in the index contains as many subnodes as
+  the term being represented contains arguments *)
+  assert ((List.length args) = (Hashtbl.length array_node));
+  (* Args is not empty <=> the term has subterms *)
+  assert (0 < List.length args);
+
+  let args_seq: Term.t Seq.t = List.to_seq args in
+  let subarray_seq: (int * map_node) Seq.t = Hashtbl.to_seq array_node in
+  let pack (arg: Term.t) (array_kvp: int * map_node) =
+    let (_i, map_node) = array_kvp in
+    (arg, map_node)
+  in
+  let packed_seq: (Term.t * map_node) Seq.t =
+    Seq.map2 pack args_seq subarray_seq
+  in
+  let perform_retrieve (item: Term.t * map_node) =
+    let (arg, map_node) = item in
+    retrieve map_node arg
+  in
+  let intersection = term_set_create () in
+  let add_intersection (item, i) =
+    let continue = true in
+    let stop = false in
+    if i = 0 then
+      let retrieved = perform_retrieve item in
+      Hashtbl.replace_seq intersection (Hashtbl.to_seq retrieved);
+      continue
+    else (
+      if (Hashtbl.length intersection) = 0 then
+        stop
+      else (
+        let retrieved = perform_retrieve item in
+        hashtbl_inter_inplace intersection retrieved;
+        continue
+      )
+    )
+  in
+  sequence_iter_until add_intersection packed_seq;
+  intersection *)
 
 let get_example_index factory0 =
   let make_hashtbl (list: ('a * 'b) list) =
