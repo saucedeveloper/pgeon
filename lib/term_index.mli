@@ -41,6 +41,12 @@ val add_terms : t -> Term.t Seq.t -> t
 (* Remove multiple terms from the index *)
 val remove_terms : t -> Term.t Seq.t -> t
 
+(* Checks whether this index contains this term *)
+val contains_term : t -> Term.t -> bool
+
+(* Checks whether this index contains all of these terms *)
+val contains_all_terms : t -> (Term.t Seq.t) -> bool
+
 (* All generalizations of this term contained in the index *)
 val retrieve_generalizations : t -> Term.t -> Term.substitutability -> term_set
 

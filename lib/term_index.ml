@@ -160,7 +160,45 @@ let index_with_root (_index: t) (root: index_map_node) =
 let is_empty index = SymbolKeyedMap.is_empty index.root
 
 
-let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
+(* Assumes insertion and deletion already work as intended.
+This only checks that the index node corresponding to the first leaf
+of `total_term` (reading from left to right) contains `total_term` *)
+let contains_term (term_index: t) (total_term: Term.t) =
+  let rec contains_map (node: index_map_node) (current_term: Term.t) = (
+    let target_symbol = Term_symbol.of_term current_term in
+    let search = SymbolKeyedMap.find_opt target_symbol node in
+    match search with
+    | None -> false
+    | Some subnode -> (
+      match subnode with
+      | SubLeaf term_set -> TermSet.mem total_term term_set
+      | SubArray subarray -> (
+        match current_term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> false
+        | App (_, args) -> (
+          assert (not (List.is_empty args));
+          contains_array subarray (List.hd args)
+        )
+        | Bind (_, body) -> contains_array subarray body
+      )
+    )
+  )
+  and contains_array (node: index_array_node) (current_term: Term.t) = (
+    let target_i = 0 in
+    let search = SparseArray.find_opt target_i node in
+    match search with
+    | None -> false
+    | Some subnode -> contains_map subnode current_term
+  )
+  in
+  contains_map term_index.root total_term
+
+
+let contains_all_terms (term_index: t) (terms: Term.t Seq.t) =
+  Seq.for_all (contains_term term_index) terms
+
+
+(* let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
   let rec find_map (node: index_map_node) (pstring_i: int): term_set option = (
     assert (0 <= pstring_i && pstring_i < (Array.length pstring));
     let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
@@ -188,7 +226,7 @@ let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
     | None -> None
     | Some subnode -> find_map subnode pstring_i
   ) in
-  find_map term_index.root 0
+  find_map term_index.root 0 *)
 
 
 let add_term (term_index: t) (total_term: Term.t) =
