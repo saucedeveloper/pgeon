@@ -1,7 +1,6 @@
-(executable
+(library
  (name term_index_test_retrieval_vari)
  (libraries pgeon)
- (public_name test_exec)
  (inline_tests)
  (preprocess (pps ppx_inline_test))
 )
