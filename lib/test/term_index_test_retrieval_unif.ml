@@ -80,11 +80,6 @@ let indexed_terms = [
   List.nth terms 9;
 ]
 
-(* let () =
-  Printf.printf "indexed_terms: {\n%s\n}\n"
-    (String.concat "\n" (List.map Term.string_of_full indexed_terms))
-;; *)
-
 let i_f1 = List.nth indexed_terms 0
 let i_f2 = List.nth indexed_terms 1
 let i_f3 = List.nth indexed_terms 2
@@ -100,42 +95,35 @@ let unifiable_f = Term_index.retrieve_unifiable index query (Term.make_substitut
 let unifiable_m = Term_index.retrieve_unifiable index query (Term.make_substitutability ~fvar:false ~mvar:true)
 let unifiable_fm = Term_index.retrieve_unifiable index query (Term.make_substitutability ~fvar:true ~mvar:true)
 
-(* let () =
-  Printf.printf "index: \n%s\n\n" (Term_index.string_of index);
-  Printf.printf "unifiable_f: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" unifiable_f);
-  Printf.printf "unifiable_m: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" unifiable_m);
-  Printf.printf "unifiable_fm: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" unifiable_fm);
-;; *)
-
 (* Instances with fvar contains f1 *)
-let _ = assert( Term_index.TermSet.mem i_f1 unifiable_f )
+let%test _ = Term_index.TermSet.mem i_f1 unifiable_f
 
 (* Instances with fvar contains f2 *)
-let _ = assert( Term_index.TermSet.mem i_f2 unifiable_f )
+let%test _ = Term_index.TermSet.mem i_f2 unifiable_f
 
 (* Instances with fvar contains f3 *)
-let _ = assert( Term_index.TermSet.mem i_f3 unifiable_f )
+let%test _ = Term_index.TermSet.mem i_f3 unifiable_f
 
 (* Instances with mvar contains f4 *)
-let _ = assert( Term_index.TermSet.mem i_f4 unifiable_m )
+let%test _ = Term_index.TermSet.mem i_f4 unifiable_m
 
 (* Instances with mvar contains f5 *)
-let _ = assert( Term_index.TermSet.mem i_f5 unifiable_m )
+let%test _ = Term_index.TermSet.mem i_f5 unifiable_m
 
 (* Instances with mvar contains f6 *)
-let _ = assert( Term_index.TermSet.mem i_f6 unifiable_m )
+let%test _ = Term_index.TermSet.mem i_f6 unifiable_m
 
 (* Instances with both contains f7 *)
-let _ = assert( Term_index.TermSet.mem i_f7 unifiable_fm )
+let%test _ = Term_index.TermSet.mem i_f7 unifiable_fm
 
 (* Instances with both contains f8 *)
-let _ = assert( Term_index.TermSet.mem i_f8 unifiable_fm )
+let%test _ = Term_index.TermSet.mem i_f8 unifiable_fm
 
 (* Instances with both contains f9 *)
-let _ = assert( Term_index.TermSet.mem i_f9 unifiable_fm )
+let%test _ = Term_index.TermSet.mem i_f9 unifiable_fm
 
 (* Instances with fvar are all in unifiable with both *)
-let _ = assert( Term_index.TermSet.subset unifiable_f unifiable_fm )
+let%test _ = Term_index.TermSet.subset unifiable_f unifiable_fm
 
 (* Instances with mvar are all in unifiable with both *)
-let _ = assert( Term_index.TermSet.subset unifiable_m unifiable_fm )
+let%test _ = Term_index.TermSet.subset unifiable_m unifiable_fm

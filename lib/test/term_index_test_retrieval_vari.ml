@@ -92,11 +92,6 @@ let indexed_terms = [
   List.nth terms 10;
 ]
 
-(* let () =
-  Printf.printf "indexed_terms: {\n%s\n}\n"
-    (String.concat "\n" (List.map Term.string_of_full indexed_terms))
-;; *)
-
 let i_f1 = List.nth indexed_terms 0
 let i_f2 = List.nth indexed_terms 1
 let i_f3 = List.nth indexed_terms 2
@@ -110,34 +105,29 @@ let query = List.hd terms
 let index = Term_index.add_terms Term_index.empty (List.to_seq indexed_terms)
 let variants = Term_index.retrieve_variants index query (* (Term.make_substitutability ~fvar:true ~mvar:false) *)
 
-(* let () =
-  Printf.printf "index: \n%s\n\n" (Term_index.string_of index);
-  Printf.printf "variants: \n%s\n\n" (Term_index.string_of_term_set_full ~sep:"\n" variants);
-;; *)
-
 (* Instances contains f1 *)
-let _ = assert( Term_index.TermSet.mem i_f1 variants )
+let%test _ = Term_index.TermSet.mem i_f1 variants
 
 (* Instances contains f2 *)
-let _ = assert( Term_index.TermSet.mem i_f2 variants )
+let%test _ = Term_index.TermSet.mem i_f2 variants
 
 (* Instances contains f3 *)
-let _ = assert( Term_index.TermSet.mem i_f3 variants )
+let%test _ = Term_index.TermSet.mem i_f3 variants
 
 (* Instances contains f4 *)
-let _ = assert( Term_index.TermSet.mem i_f4 variants )
+let%test _ = Term_index.TermSet.mem i_f4 variants
 
 (* Instances contains f5 *)
-let _ = assert( Term_index.TermSet.mem i_f5 variants )
+let%test _ = Term_index.TermSet.mem i_f5 variants
 
 (* Instances contains f6 *)
-let _ = assert( Term_index.TermSet.mem i_f6 variants )
+let%test _ = Term_index.TermSet.mem i_f6 variants
 
 (* Instances contains f7 *)
-let _ = assert( Term_index.TermSet.mem i_f7 variants )
+let%test _ = Term_index.TermSet.mem i_f7 variants
 
 (* Instances contains f8 *)
-let _ = assert( Term_index.TermSet.mem i_f8 variants )
+let%test _ = Term_index.TermSet.mem i_f8 variants
 
 (* Instances contains f9 *)
-let _ = assert( Term_index.TermSet.mem i_f9 variants )
+let%test _ = Term_index.TermSet.mem i_f9 variants
