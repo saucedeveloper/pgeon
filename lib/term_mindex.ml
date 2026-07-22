@@ -48,11 +48,6 @@ let term_set_singleton ?(capacity=8) (term: Term.t) =
   IndexLeafTermSet.create capacity *)
 
 
-let term_set_of_list (terms: Term.t list) =
-  let add_unit term = (term, ()) in
-  IndexLeafTermSet.of_seq (List.to_seq (List.map add_unit terms))
-
-
 let term_set_mem (term_set: term_set) (term: Term.t) =
   IndexLeafTermSet.mem term_set term
 
@@ -83,27 +78,7 @@ type t = {
 let array_node_create ?(capacity=8) () = Hashtbl.create capacity
 
 
-let array_node_replace (container: array_node) (index: int) (map_node: map_node) =
-  Hashtbl.replace container index map_node;
-  ()
-
-
-let array_node_remove (container: array_node) (index: int) =
-  Hashtbl.remove container index;
-  ()
-
-
-let array_node_make (map_nodes: map_node list) =
-  let pair_with_index i node = (i, node) in
-  Hashtbl.of_seq (List.to_seq (List.mapi pair_with_index map_nodes))
-
-
 let map_node_create ?(capacity=8) () = Hashtbl.create capacity
-
-
-let map_node_remove (container: map_node) (symbol: Term_symbol.t) =
-  Hashtbl.remove container symbol;
-  ()
 
 
 let string_of ?(indent_pattern="    ") ?(indent_level=0) (term_index: t) =
@@ -273,7 +248,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
           in
           List.iteri remove_subterm args;
           if (Hashtbl.length subarray) = 0 then (
-            map_node_remove node target_symbol;
+            Hashtbl.remove node target_symbol;
             assert (not (Hashtbl.mem node target_symbol)); (* empty array is removed *)
             ()
           ) else
@@ -282,7 +257,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
         | Bind (_name, arg) -> (
           remove_array subarray arg 0;
           if (Hashtbl.length subarray) = 0 then (
-            map_node_remove node target_symbol;
+            Hashtbl.remove node target_symbol;
             assert (not (Hashtbl.mem node target_symbol)); (* empty array is removed *)
             ()
           ) else
@@ -296,7 +271,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
           term_set_remove term_set total_term;
           assert (not (term_set_mem term_set total_term)); (* term is removed *)
           if (IndexLeafTermSet.length term_set) = 0 then (
-            map_node_remove node target_symbol;
+            Hashtbl.remove node target_symbol;
             assert (not (Hashtbl.mem node target_symbol)); (* empty set is removed *)
             ()
           ) else
@@ -314,7 +289,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
     | Some subnode -> (
       remove_map subnode current_term;
       if (Hashtbl.length subnode) = 0 then (
-        array_node_remove node target_i;
+        Hashtbl.remove node target_i;
         assert (not (Hashtbl.mem node target_i)); (* empty map is removed *)
         ()
       ) else
