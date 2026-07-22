@@ -187,7 +187,7 @@ let contains_term (term_index: t) (total_term: Term.t) =
     let target_i = 0 in
     let search = SparseArray.find_opt target_i node in
     match search with
-    | None -> false
+    | None -> Printf.printf "  -> false"; false
     | Some subnode -> contains_map subnode current_term
   )
   in
@@ -196,37 +196,6 @@ let contains_term (term_index: t) (total_term: Term.t) =
 
 let contains_all_terms (term_index: t) (terms: Term.t Seq.t) =
   Seq.for_all (contains_term term_index) terms
-
-
-(* let find_pstring (term_index: t) (pstring: Pstring.t): term_set option =
-  let rec find_map (node: index_map_node) (pstring_i: int): term_set option = (
-    assert (0 <= pstring_i && pstring_i < (Array.length pstring));
-    let target_symbol: Term_symbol.t = (Array.get pstring pstring_i).symbol in
-    let pstring_at_end = (pstring_i = (Array.length pstring) - 1) in
-    let search = SymbolKeyedMap.find_opt target_symbol node in
-    match search with
-    | None -> None
-    | Some subnode -> (
-      match subnode with
-      | SubArray subarray -> (
-        assert (not pstring_at_end);
-        find_array subarray (pstring_i + 1)
-      )
-      | SubLeaf term_set -> (
-        assert (pstring_at_end);
-        Some term_set
-      )
-    )
-  )
-  and find_array (node: index_array_node) (pstring_i: int): term_set option = (
-    assert (0 <= pstring_i && pstring_i < (Array.length pstring));
-    let target_i: int = (Array.get pstring pstring_i).index in
-    let search = SparseArray.find_opt target_i node in
-    match search with
-    | None -> None
-    | Some subnode -> find_map subnode pstring_i
-  ) in
-  find_map term_index.root 0 *)
 
 
 let add_term (term_index: t) (total_term: Term.t) =
