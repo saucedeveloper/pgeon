@@ -2,10 +2,10 @@
 in mutable and immutable indexes *)
 
 (* pgeon/lib $
-ocamlc -c utils.mli term.mli term_symbol.mli lfsr_random.mli term_generation.mli pstring.mli term_index.mli term_mindex.mli
+ocamlc -c utils.mli term.mli term_symbol.mli lfsr_random.mli term_generation.mli term_index.mli term_mindex.mli
 *)
 (* pgeon/lib $
-ocamlc -o term_xindex_performance_demo.exe utils.ml term.ml term_symbol.ml lfsr_random.ml term_generation.ml pstring.ml term_index.ml term_mindex.ml demo/term_xindex_performance_demo.ml
+ocamlc -o term_xindex_performance_demo.exe utils.ml term.ml term_symbol.ml lfsr_random.ml term_generation.ml term_index.ml term_mindex.ml demo/term_xindex_performance_demo.ml
 *)
 
 open Pgeon

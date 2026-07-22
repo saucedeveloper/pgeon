@@ -4,10 +4,10 @@
 (* Test the insertion of terms in the mutable index *)
 
 (* pgeon/lib $
-ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli term_mindex.mli
+ocamlc -c utils.mli term.mli term_symbol.mli term_mindex.mli
 *)
 (* pgeon/lib $
-ocamlc -o term_mindex_demo.exe utils.ml term.ml term_symbol.ml pstring.ml term_mindex.ml demo/term_mindex_demo.ml
+ocamlc -o term_mindex_demo.exe utils.ml term.ml term_symbol.ml term_mindex.ml demo/term_mindex_demo.ml
 *)
 
 open Pgeon

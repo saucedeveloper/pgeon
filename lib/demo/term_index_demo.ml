@@ -5,10 +5,10 @@
 A version based on p-strings is commented out *)
 
 (* pgeon/lib $
-ocamlc -c utils.mli term.mli term_symbol.mli pstring.mli term_index.mli
+ocamlc -c utils.mli term.mli term_symbol.mli term_index.mli
 *)
 (* pgeon/lib $
-ocamlc -o term_index_demo.exe utils.ml term.ml term_symbol.ml pstring.ml term_index.ml demo/term_index_demo.ml
+ocamlc -o term_index_demo.exe utils.ml term.ml term_symbol.ml term_index.ml demo/term_index_demo.ml
 *)
 
 open Pgeon
