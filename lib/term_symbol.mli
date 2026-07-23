@@ -1,3 +1,5 @@
+(* Symbol of a term stored in a term index *)
+
 (* Identifies the term symbol uniquely *)
 type t =
 | SymBvar of int
