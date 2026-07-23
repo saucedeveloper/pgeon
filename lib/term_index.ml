@@ -441,6 +441,37 @@ let union_of_substitutable (map_node: index_map_node) (options: Term.substitutab
   term_union
 
 
+(* Get all descendants of map_node that are term sets, in a sequence *)
+let get_map_term_set_sequence (map_node: index_map_node) =
+  let rec rec_map map_node =
+    let map (kvp: Term_symbol.t * index_map_subnode) =
+      let (_symbol, subnode) = kvp in
+      match subnode with
+      | SubArray subarray -> (
+        rec_array subarray
+      )
+      | SubLeaf term_set -> TermSet.to_seq term_set
+    in
+    let siblings = Seq.map map (SymbolKeyedMap.to_seq map_node) in
+    Seq.concat siblings
+  and rec_array array_node =
+    let fold acc kvp =
+      let (_index, map_subnode) = kvp in
+      Seq.append acc (rec_map map_subnode)
+    in
+    Seq.fold_left fold Seq.empty (SparseArray.to_seq array_node)
+  in
+  rec_map map_node
+
+
+(* Get the union of all descendants of map_node that are term sets,
+filtered at the term level with filter *)
+let get_map_term_set_union (map_node: index_map_node) (filter: Term.t -> bool) =
+  let term_sequence = get_map_term_set_sequence map_node in
+  let filtered_term_sequence = Seq.filter filter term_sequence in
+  TermSet.of_seq filtered_term_sequence
+
+
 (*
 function retrieve_generalizations(map_node s, term u) returns term_set
   M := {};
@@ -492,37 +523,6 @@ let retrieve_generalizations (index: t)
     TermSet.union first_candidate_set second_candidate_set
   in
   retrieve index.root query
-
-
-(* Get all descendants of map_node that are term sets, in a sequence *)
-let get_map_term_set_sequence (map_node: index_map_node) =
-  let rec rec_map map_node =
-    let map (kvp: Term_symbol.t * index_map_subnode) =
-      let (_symbol, subnode) = kvp in
-      match subnode with
-      | SubArray subarray -> (
-        rec_array subarray
-      )
-      | SubLeaf term_set -> TermSet.to_seq term_set
-    in
-    let siblings = Seq.map map (SymbolKeyedMap.to_seq map_node) in
-    Seq.concat siblings
-  and rec_array array_node =
-    let fold acc kvp =
-      let (_index, map_subnode) = kvp in
-      Seq.append acc (rec_map map_subnode)
-    in
-    Seq.fold_left fold Seq.empty (SparseArray.to_seq array_node)
-  in
-  rec_map map_node
-
-
-(* Get the union of all descendants of map_node that are term sets,
-filtered at the term level with filter *)
-let get_map_term_set_union (map_node: index_map_node) (filter: Term.t -> bool) =
-  let term_sequence = get_map_term_set_sequence map_node in
-  let filtered_term_sequence = Seq.filter filter term_sequence in
-  TermSet.of_seq filtered_term_sequence
 
 
 (*
