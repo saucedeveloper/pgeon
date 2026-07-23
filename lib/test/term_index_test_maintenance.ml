@@ -1,3 +1,5 @@
+(* Unit tests for Term_index insertion and deletion *)
+
 open Pgeon
 
 let t_bvar = Term_utility.tbvar 0

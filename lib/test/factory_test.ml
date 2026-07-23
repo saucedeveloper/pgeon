@@ -1,3 +1,5 @@
+(* Unit tests for the factory part of Term *)
+
 open Pgeon
 
 (* factory_test *)
