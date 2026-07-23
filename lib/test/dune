@@ -1,5 +1,5 @@
 (library
- (name term_index_test_retrieval_vari)
+ (name test)
  (libraries pgeon)
  (inline_tests)
  (preprocess (pps ppx_inline_test))
