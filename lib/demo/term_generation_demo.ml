@@ -27,15 +27,15 @@ let demo_random_letters _ =
 let demo_random_variant_and_name _ =
   let seed = Lfsr_random.choose_seed () in
   let (name, next_state) = random_name seed 10 ~case:CamelCase in
-  let weights = make_variant_weights 1.0 1.0 1.0 1.0 1.0 in
+  let weights = make_variant_weights ~bvar:1.0 ~fvar:1.0 ~mvar:1.0 ~app:1.0 ~bind:1.0 in
   let (variant, _next_state) = random_variant next_state weights in
-  Printf.printf "%s %s\n" (Term_symbol.string_of_variant variant) name;
+  Printf.printf "%s %s\n" (Term.string_of_variant variant) name;
   ;;
 
 let demo_random_term _ =
   (* let seed_with_div0 = 242633790887765721 in *)
   let seed = Lfsr_random.choose_seed () in
-  let weights = make_variant_weights 1.0 1.0 1.0 15.0 10.0 in
+  let weights = make_variant_weights ~bvar:1.0 ~fvar:1.0 ~mvar:1.0 ~app:15.0 ~bind:10.0 in
   Printf.printf "seed: %s, weights: (%s)\n"
     (Lfsr_random.string_of_state seed)
     (Term_generation.string_of_weights weights);

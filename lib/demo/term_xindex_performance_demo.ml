@@ -57,7 +57,7 @@ let _ =
   let (template_bank, next_state) = Term_generation.random_variant_template_bank next_state variant_counts name_max_length max_arity in
   Printf.printf "template_bank: %s\n%!" (Term_generation.string_of_template_bank template_bank);
 
-  let weights = Term_generation.make_variant_weights 1.0 1.0 1.0 15.0 10.0 in
+  let weights = Term_generation.make_variant_weights ~bvar:1.0 ~fvar:1.0 ~mvar:1.0 ~app:15.0 ~bind:10.0 in
   let options: Term_generation.generation_options = {
     max_depth = 4;
     variant_weights = weights;

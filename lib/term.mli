@@ -30,6 +30,8 @@ module FactoryTerm : sig
   val compare : t -> t -> int
 end
 
+val string_of_variant : variant -> name
+
 val empty_factory : factory
 
 (** Factory to string recursively *)

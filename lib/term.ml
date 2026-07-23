@@ -44,6 +44,13 @@ let empty_factory = {
   set = FactoryTermSet.empty
 }
 
+let string_of_variant = function
+| VBvar -> "Bvar"
+| VFvar -> "Fvar"
+| VMvar -> "Mvar"
+| VApp -> "App"
+| VBind -> "Bind"
+
 (* term to string implementation from compile.ml *)
 let string_of term =
   let rec string_of_term = function
