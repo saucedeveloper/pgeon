@@ -16,14 +16,14 @@ associative data structure to a linear one that would benefit
 strongly from constant time access, such as Array.
 *)
 
-module TermSet = Hashtbl.Make(
-  struct
-    (* Key type *)
-    type t = Term.t
-    let equal = Term.term_equal
-    let hash = Hashtbl.hash
-  end
-)
+module IdComparableTerm = struct
+  (* Key type *)
+  type t = Term.t
+  let equal = Term.term_equal
+  let hash = Hashtbl.hash
+end
+
+module TermSet = Hashtbl.Make(IdComparableTerm)
 
 type term_set = unit TermSet.t
 
@@ -132,6 +132,44 @@ let create ?(capacity=8) () =
 
 
 let is_empty index = 0 = Hashtbl.length index.root
+
+
+(* Assumes insertion and deletion already work as intended.
+This only checks that the index node corresponding to the first leaf
+of `total_term` (reading from left to right) contains `total_term` *)
+let contains_term (term_index: t) (total_term: Term.t) =
+  let rec contains_map (node: map_node) (current_term: Term.t) = (
+    let target_symbol = Term_symbol.of_term current_term in
+    let search = Hashtbl.find_opt node target_symbol in
+    match search with
+    | None -> false
+    | Some subnode -> (
+      match subnode with
+      | SubLeaf term_set -> TermSet.mem term_set total_term
+      | SubArray subarray -> (
+        match current_term with
+        | Bvar _ | Fvar _ | Mvar _ | App (_, []) -> false
+        | App (_, args) -> (
+          assert (not (List.is_empty args));
+          contains_array subarray (List.hd args)
+        )
+        | Bind (_, body) -> contains_array subarray body
+      )
+    )
+  )
+  and contains_array (node: array_node) (current_term: Term.t) = (
+    let target_i = 0 in
+    let search = Hashtbl.find_opt node target_i in
+    match search with
+    | None -> Printf.printf "  -> false"; false
+    | Some subnode -> contains_map subnode current_term
+  )
+  in
+  contains_map term_index.root total_term
+
+
+let contains_all_terms (term_index: t) (terms: Term.t Seq.t) =
+  Seq.for_all (contains_term term_index) terms
 
 
 let insert_term (term_index: t) (total_term: Term.t) =
