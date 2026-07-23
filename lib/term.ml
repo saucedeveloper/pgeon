@@ -197,6 +197,7 @@ let substitute (MetaSubstitution sigma) t =
   in
   go t
 
+(* TODO: Support for Mvar substitutability is not done *)
 let match_terms (candidate : t list) (pattern : t list) :
     meta_substitution option =
   let rec go (sigma : substitution) cand pat =
@@ -237,7 +238,7 @@ let free_substitute (FreeSubstitution sigma) t =
   in
   go t
 
-(* Support for Mvar substitutability is not done *)
+(* TODO: Support for Mvar substitutability is not done *)
 let unify (t1: t) (t2: t) (substitutable: substitutability) =
   let rec occurs x = function
     | Bvar _ -> false
