@@ -419,7 +419,7 @@ let retrievals_intersection (array_node: index_array_node)
   | Some result -> result
 
 
-(* Union of substitutable *)
+(* Union of leaves associated with substitutable term(s) *)
 let union_of_substitutable (map_node: index_map_node) (options: Term.substitutability): term_set =
   let term_union =
     let get_term_set substitutable symbol =
@@ -434,8 +434,8 @@ let union_of_substitutable (map_node: index_map_node) (options: Term.substitutab
         | _ -> TermSet.empty
       )
     in
-    let fvar_set = get_term_set options.fvar SymFvar in
-    let mvar_set = get_term_set options.mvar SymMvar in
+    let fvar_set = get_term_set options.fvar Term_symbol.SymFvar in
+    let mvar_set = get_term_set options.mvar Term_symbol.SymMvar in
     TermSet.union fvar_set mvar_set
   in
   term_union
