@@ -1,5 +1,6 @@
 (* Unit tests for Term_index.retrieve_generalizations.
-Does not test handling of nonlinearity *)
+Does not test handling of nonlinearity,
+nor terms that should not be in the result *)
 
 open Pgeon
 
@@ -66,13 +67,14 @@ let (terms, _factory1) = Term_utility.create_many (List.to_seq templates) Term.e
 
 let indexed_terms = Seq.drop 1 (List.to_seq terms)
 
+let query = List.nth terms 0
 let i_x = List.nth terms 1
 let i_Y = List.nth terms 2
 let i_f1 = List.nth terms 3
 let i_f2 = List.nth terms 4
 let i_f3 = List.nth terms 5
 let i_f4 = List.nth terms 6
-let query = List.hd terms
+
 let index = Term_index.add_terms Term_index.empty indexed_terms
 let generalizations_f = Term_index.retrieve_generalizations index query (Term.make_substitutability ~fvar:true ~mvar:false)
 let generalizations_m = Term_index.retrieve_generalizations index query (Term.make_substitutability ~fvar:false ~mvar:true)

@@ -1,3 +1,7 @@
+(* Unit tests for Term_index.retrieve_instances.
+Does not test handling of nonlinearity,
+nor terms that should not be in the result *)
+
 open Pgeon
 
 (*
@@ -113,6 +117,7 @@ let i_f8 = List.nth terms 8
 let i_f9 = List.nth terms 9
 let i_f10 = List.nth terms 10
 let i_f11 = List.nth terms 11
+
 let index = Term_index.add_terms Term_index.empty indexed_terms
 let instances_f = Term_index.retrieve_instances index query (Term.make_substitutability ~fvar:true ~mvar:false)
 let instances_m = Term_index.retrieve_instances index query (Term.make_substitutability ~fvar:false ~mvar:true)

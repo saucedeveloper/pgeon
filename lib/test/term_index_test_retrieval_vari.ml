@@ -1,3 +1,6 @@
+(* Unit tests for Term_index.retrieve_variants.
+Does not test for terms that should not be in the result *)
+
 open Pgeon
 
 (*
@@ -79,30 +82,20 @@ let templates = [
 ]
 
 let (terms, _factory1) = Term_utility.create_many (List.to_seq templates) Term.empty_factory
-let indexed_terms = [
-  List.nth terms 1;
-  List.nth terms 2;
-  List.nth terms 3;
-  List.nth terms 4;
-  List.nth terms 5;
-  List.nth terms 6;
-  List.nth terms 7;
-  List.nth terms 8;
-  List.nth terms 9;
-  List.nth terms 10;
-]
+let indexed_terms = Seq.drop 1 (List.to_seq terms)
 
-let i_f1 = List.nth indexed_terms 0
-let i_f2 = List.nth indexed_terms 1
-let i_f3 = List.nth indexed_terms 2
-let i_f4 = List.nth indexed_terms 3
-let i_f5 = List.nth indexed_terms 4
-let i_f6 = List.nth indexed_terms 5
-let i_f7 = List.nth indexed_terms 6
-let i_f8 = List.nth indexed_terms 7
-let i_f9 = List.nth indexed_terms 8
-let query = List.hd terms
-let index = Term_index.add_terms Term_index.empty (List.to_seq indexed_terms)
+let query = List.nth terms 0
+let i_f1 = List.nth terms 1
+let i_f2 = List.nth terms 2
+let i_f3 = List.nth terms 3
+let i_f4 = List.nth terms 4
+let i_f5 = List.nth terms 5
+let i_f6 = List.nth terms 6
+let i_f7 = List.nth terms 7
+let i_f8 = List.nth terms 8
+let i_f9 = List.nth terms 9
+
+let index = Term_index.add_terms Term_index.empty indexed_terms
 let variants = Term_index.retrieve_variants index query (* (Term.make_substitutability ~fvar:true ~mvar:false) *)
 
 (* Instances contains f1 *)
