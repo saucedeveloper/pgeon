@@ -1,4 +1,6 @@
 (* Mutable implementation of a term index *)
+(* Addition and removal must be sound (break no invariant) and
+succeed, otherwise they result in an assertion failure *)
 
 module IdComparableTerm : sig
   type t = Term.t
