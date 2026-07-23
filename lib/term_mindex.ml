@@ -16,7 +16,7 @@ associative data structure to a linear one that would benefit
 strongly from constant time access, such as Array.
 *)
 
-module IndexLeafTermSet = Hashtbl.Make(
+module TermSet = Hashtbl.Make(
   struct
     (* Key type *)
     type t = Term.t
@@ -25,35 +25,35 @@ module IndexLeafTermSet = Hashtbl.Make(
   end
 )
 
-type term_set = unit IndexLeafTermSet.t
+type term_set = unit TermSet.t
 
 
 let term_set_add (term_set: term_set) (term: Term.t) =
-  IndexLeafTermSet.replace term_set term ();
+  TermSet.replace term_set term ();
   ()
 
 
 let term_set_remove (term_set: term_set) (term: Term.t) =
-  IndexLeafTermSet.remove term_set term;
+  TermSet.remove term_set term;
   ()
 
 
 let term_set_singleton ?(capacity=8) (term: Term.t) =
-  let created_term_set = IndexLeafTermSet.create capacity in
-  IndexLeafTermSet.add created_term_set term ();
+  let created_term_set = TermSet.create capacity in
+  TermSet.add created_term_set term ();
   created_term_set
 
 
-(* let term_set_create ?(capacity=8) () =
-  IndexLeafTermSet.create capacity *)
+let term_set_create ?(capacity=8) () =
+  TermSet.create capacity
 
 
 let term_set_mem (term_set: term_set) (term: Term.t) =
-  IndexLeafTermSet.mem term_set term
+  TermSet.mem term_set term
 
 
 let string_of_term_set (term_set: term_set) =
-  let term_list = List.of_seq (IndexLeafTermSet.to_seq_keys term_set) in
+  let term_list = List.of_seq (TermSet.to_seq_keys term_set) in
   let string_of_term term = Utils.string_address_of term in
   let strings = List.map string_of_term term_list in
   Printf.sprintf "{ %s }" (String.concat ", " strings)
@@ -270,7 +270,7 @@ let remove_term (term_index: t) (total_term: Term.t) =
           assert (term_set_mem term_set total_term); (* term is present *)
           term_set_remove term_set total_term;
           assert (not (term_set_mem term_set total_term)); (* term is removed *)
-          if (IndexLeafTermSet.length term_set) = 0 then (
+          if (TermSet.length term_set) = 0 then (
             Hashtbl.remove node target_symbol;
             assert (not (Hashtbl.mem node target_symbol)); (* empty set is removed *)
             ()
@@ -309,21 +309,35 @@ let remove_terms (term_index: t) (terms: Term.t Seq.t) =
   Seq.iter (remove_term term_index) terms
 
 
-(* let hashtbl_inter_inplace t1 t2 =
+(* Must iterate over `target` *)
+let term_set_inter_inplace target other =
   let existing_in_t2 key value =
-    match Hashtbl.find_opt t2 key with
+    match TermSet.find_opt other key with
     | Some _ -> Some value
     | None -> None
   in
-  Hashtbl.filter_map_inplace existing_in_t2 t1
+  TermSet.filter_map_inplace existing_in_t2 target
 
 
-let hashtbl_union_inplace t1 t2 =
-  let replace_in_t1 k v = Hashtbl.replace t1 k v in
-  Hashtbl.iter replace_in_t1 t2 *)
+(* Must iterate over `other` *)
+let term_set_union_inplace target other =
+  let replace_in_t1 k v = TermSet.replace target k v in
+  TermSet.iter replace_in_t1 other
 
 
-(* let sequence_iter_until (f: 'a -> int -> bool) (seq: 'a Seq.t) =
+let term_set_filter_copy (predicate: Term.t -> bool) (term_set: term_set) =
+  let result = term_set_create () in
+  let remove_by_predicate (key: Term.t) =
+    if predicate key then
+      TermSet.replace result key ()
+    else
+      ()
+  in
+  Seq.iter remove_by_predicate (TermSet.to_seq_keys term_set);
+  result
+
+
+let sequence_iter_until (f: 'a -> int -> bool) (seq: 'a Seq.t) =
   let rec recursive remaining depth =
     match remaining () with
     | Seq.Nil -> ()
@@ -335,10 +349,11 @@ let hashtbl_union_inplace t1 t2 =
         ()
     )
   in
-  recursive seq 0 *)
+  recursive seq 0
 
 
-(* The intersection of calls to `retrieve` for each entry in `array_node` alongside `args`
+(* The intersection of calls to `retrieve` for each entry in `array_node` alongside `args`.
+Produces a new Hashtbl *)
 let retrievals_intersection (array_node: array_node)
                             (args: Term.t list)
                             (retrieve: map_node -> Term.t -> term_set) =
@@ -361,23 +376,222 @@ let retrievals_intersection (array_node: array_node)
     let (arg, map_node) = item in
     retrieve map_node arg
   in
-  let intersection = term_set_create () in
-  let add_intersection (item, i) =
+  let intersection: term_set = term_set_create () in
+  let add_intersection item i =
     let continue = true in
     let stop = false in
     if i = 0 then
       let retrieved = perform_retrieve item in
-      Hashtbl.replace_seq intersection (Hashtbl.to_seq retrieved);
+      TermSet.replace_seq intersection (TermSet.to_seq retrieved);
       continue
     else (
-      if (Hashtbl.length intersection) = 0 then
+      if (TermSet.length intersection) = 0 then
         stop
       else (
         let retrieved = perform_retrieve item in
-        hashtbl_inter_inplace intersection retrieved;
+        term_set_inter_inplace intersection retrieved;
         continue
       )
     )
   in
   sequence_iter_until add_intersection packed_seq;
-  intersection *)
+  intersection
+
+
+(* Union of leaves associated with substitutable term(s).
+Makes a union with `target` inplace *)
+let union_of_substitutable (target: term_set) (map_node: map_node) (options: Term.substitutability) =
+  let get_term_set substitutable symbol =
+    if not substitutable then
+      None
+    else (
+      let search = Hashtbl.find_opt map_node symbol in
+      match search with
+      (* Cannot be subarray because fvar and mvar are leaves *)
+      | Some (SubArray _) -> (assert false);
+      | Some (SubLeaf term_set) -> Some term_set
+      | _ -> None
+    )
+  in
+  let inplace_set_union set =
+    match set with
+    | None -> ()
+    | Some set -> term_set_union_inplace target set
+  in
+  let fvar_set = get_term_set options.fvar Term_symbol.SymFvar in
+  let mvar_set = get_term_set options.mvar Term_symbol.SymMvar in
+  inplace_set_union fvar_set;
+  inplace_set_union mvar_set
+
+
+(* Get all descendants of map_node that are term sets, in a sequence *)
+let get_map_term_set_sequence (map_node: map_node) =
+  let rec rec_map map_node =
+    let map (kvp: Term_symbol.t * map_subnode) =
+      let (_symbol, subnode) = kvp in
+      match subnode with
+      | SubArray subarray -> (
+        rec_array subarray
+      )
+      | SubLeaf term_set -> TermSet.to_seq_keys term_set
+    in
+    let siblings = Seq.map map (Hashtbl.to_seq map_node) in
+    Seq.concat siblings
+  and rec_array array_node =
+    let fold acc kvp =
+      let (_index, map_subnode) = kvp in
+      Seq.append acc (rec_map map_subnode)
+    in
+    Seq.fold_left fold Seq.empty (Hashtbl.to_seq array_node)
+  in
+  rec_map map_node
+
+
+(* Get the union of all descendants of map_node that are term sets,
+filtered at the term level with `filter`. Produces a new Hashtbl *)
+let get_map_term_set_union (map_node: map_node) (filter: Term.t -> bool) =
+  let term_sequence = get_map_term_set_sequence map_node in
+  let filter_map term =
+    if filter term then
+      Some (term, ())
+    else
+      None
+  in
+  let filtered_term_sequence = Seq.filter_map filter_map term_sequence in
+  TermSet.of_seq filtered_term_sequence
+
+
+let retrieve_generalizations (index: t)
+                             (query: Term.t)
+                             (options: Term.substitutability) =
+  let is_generalization _term =
+    true
+    (* TODO: implement the predicate: term is a generalization of query *)
+  in
+  let filter_generalizations_copy = term_set_filter_copy is_generalization in
+  let rec retrieve (map_node: map_node) (term: Term.t) =
+    (* Owned by the current scope (from copy or new creation) *)
+    let base_candidate_set: term_set = (
+      match Term_symbol.is_function term with
+      | Some (symbol, args) -> (
+        let transition_search = Hashtbl.find_opt map_node symbol in
+        match transition_search with
+        | Some map_subnode -> (
+          match map_subnode with
+          | SubLeaf term_set -> filter_generalizations_copy term_set
+          | SubArray subarray -> retrievals_intersection subarray args retrieve
+        )
+        | None -> term_set_create ()
+      )
+      | None -> term_set_create ()
+    ) in
+    union_of_substitutable base_candidate_set map_node options;
+    base_candidate_set
+  in
+  retrieve index.root query
+
+
+let retrieve_instances (index: t)
+                       (query: Term.t)
+                       (options: Term.substitutability) =
+  let is_instance _term =
+    true
+    (* TODO: implement the predicate: term is an
+    instance of query (using Term.match_terms) *)
+  in
+  let filter_instances_copy = term_set_filter_copy is_instance in
+  let rec retrieve (map_node: map_node) (term: Term.t) =
+    if Term.is_substitutable term options then (
+      get_map_term_set_union map_node is_instance
+    ) else (
+      let symbol = Term_symbol.of_term term in
+      let transition_search = Hashtbl.find_opt map_node symbol in
+      match transition_search with
+      | Some map_subnode -> (
+        match map_subnode with
+        | SubLeaf term_set -> filter_instances_copy term_set
+        | SubArray subarray -> (
+          let subterms = Term.get_subterms term in
+          (* Index contains array where term has subterms *)
+          assert (0 < List.length subterms);
+          retrievals_intersection subarray subterms retrieve
+        )
+      )
+      | None -> (
+        (* Unspecified by the algorithm *)
+        term_set_create ()
+      )
+    )
+  in
+  retrieve index.root query
+
+
+let retrieve_unifiable (index: t)
+                       (query: Term.t)
+                       (options: Term.substitutability) =
+  let is_unifiable _term =
+    (* TODO: implement the predicate: term is unifiable with query
+      Probably as shown below:
+      Option.is_some (Term.unify term query options)
+
+    Note: Term.unify does not work as intended when using
+      options = { fvar:false, mvar:true }
+      for filtering *)
+    true
+  in
+  let filter_unifiable = term_set_filter_copy is_unifiable in
+  let rec retrieve (map_node: map_node) (term: Term.t) =
+    (* Owned by the current scope (from copy or new creation) *)
+    let base_candidate_set = (
+      if Term.is_substitutable term options then (
+        get_map_term_set_union map_node is_unifiable
+      ) else (
+        let symbol = Term_symbol.of_term term in
+        let transition_search = Hashtbl.find_opt map_node symbol in
+        match transition_search with
+        | Some map_subnode -> (
+          match map_subnode with
+          | SubLeaf term_set -> filter_unifiable term_set
+          | SubArray subarray -> (
+            let subterms = Term.get_subterms term in
+            (* Index contains array where term has subterms *)
+            assert (0 < List.length subterms);
+            retrievals_intersection subarray subterms retrieve
+          )
+        )
+        | None -> term_set_create ()
+      )
+    ) in
+    union_of_substitutable base_candidate_set map_node options;
+    base_candidate_set
+  in
+  retrieve index.root query
+
+
+let retrieve_variants (index: t)
+                      (query: Term.t) =
+  let is_variant _term =
+    true
+    (* TODO: implement the predicate: term is a variant of query *)
+  in
+  let filter_variants = term_set_filter_copy is_variant in
+  let rec retrieve (map_node: map_node) (term: Term.t) = (
+    let symbol = Term_symbol.of_term term in
+    let transition_search = Hashtbl.find_opt map_node symbol in
+    match transition_search with
+    | Some map_subnode -> (
+      match map_subnode with
+      | SubLeaf term_set -> filter_variants term_set
+      | SubArray subarray -> (
+        let subterms = Term.get_subterms term in
+        (* Index contains array where term has subterms *)
+        assert (0 < List.length subterms);
+        retrievals_intersection subarray subterms retrieve
+      )
+    )
+    | None -> (
+      (* Unspecified by the algorithm *)
+      term_set_create ()
+    )
+  ) in
+  retrieve index.root query
