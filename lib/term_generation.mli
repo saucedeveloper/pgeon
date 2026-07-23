@@ -96,8 +96,9 @@ val random_letter_index : Lfsr_random.t -> int array -> (int * Lfsr_random.t)
 (* Weights to string *)
 val string_of_weights : variant_weights -> string
 
-val make_variant_weights : float -> float -> float -> float -> float -> variant_weights
+val make_variant_weights : bvar:float -> fvar:float -> mvar:float -> app:float -> bind:float -> variant_weights
 
+(* Integer thresholds by variant to add bias to a uniform distribution *)
 val make_variant_thresholds : variant_weights -> int -> variant_thresholds
 
 val random_bvar : Lfsr_random.t -> int -> Term.factory
@@ -123,9 +124,11 @@ val random_variant : Lfsr_random.t -> variant_weights
 val random_variant_template_bank : Lfsr_random.t -> variant_counts -> int -> int
   -> (variant_template_bank * Lfsr_random.t)
 
+(* Add a random term to this factory with options *)
 val add_random_term : Lfsr_random.t -> generation_options -> variant_template_bank -> Term.factory
   -> (Term.t * Lfsr_random.t * Term.factory)
 
+(* Add random terms to this factory with options *)
 val add_random_terms :
   Lfsr_random.t -> int -> variant_template_bank -> generation_options -> Term.factory
   -> (TermSet.t * Lfsr_random.t * Term.factory)

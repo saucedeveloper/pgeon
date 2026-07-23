@@ -136,7 +136,7 @@ let string_of_weights (we: variant_weights) =
   Printf.sprintf "bvar: %f, fvar: %f, mvar: %f, app: %f, bind: %f"
   we.bvar we.fvar we.mvar we.app we.bind
 
-let make_variant_weights bvar fvar mvar app bind =
+let make_variant_weights ~bvar ~fvar ~mvar ~app ~bind =
   assert (0.0 <= bvar);
   assert (0.0 <= fvar);
   assert (0.0 <= mvar);
