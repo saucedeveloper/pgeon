@@ -19,52 +19,63 @@ instances: [
 ]
 *)
 
-let t_a = Term_utility.tconst "a"  (* a *)
-let t_b = Term_utility.tconst "b"  (* b *)
-let t_c = Term_utility.tconst "c"  (* c *)
-let t_0 = Term_utility.tbvar 0  (* #0 *)
-let t_1 = Term_utility.tbvar 1  (* #1 *)
-let t_x = Term_utility.tfvar "x"  (* 'x *)
-let t_z = Term_utility.tfvar "z"  (* 'z *)
-let t_Y = Term_utility.tmvar "Y"  (* ?Y *)
-let t_K = Term_utility.tbind "K" t_1  (* K.#1 *)
-let t_g1 = Term_utility.tapp "g" [t_Y; t_c; t_z]  (* g(?Y, c, 'z) *)
-let t_g2 = Term_utility.tapp "g" [t_Y; t_c; t_x]  (* g(?Y, c, 'x) *)
-let t_P10 = Term_utility.tapp "P" [t_Y; t_0; t_z]  (* P(?Y, #0, 'z) *)
-let t_W12 = Term_utility.tbind "W" t_z  (* W.'z *)
-let t_W13 = Term_utility.tbind "W" t_P10  (* W.P(...) *)
-let t_Pq = Term_utility.tapp "P" [t_x; t_Y; t_b]  (* P('x, ?Y, b) *)
-let t_P1 = Term_utility.tapp "P" [t_a; t_Y; t_b]  (* P(a, ?Y, b) *)
-let t_P2 = Term_utility.tapp "P" [t_g1; t_Y; t_b]  (* P(g(...), ?Y, b) *)
-let t_P3 = Term_utility.tapp "P" [t_x; t_K; t_b]  (* P('x, K.#1, b) *)
-let t_P4 = Term_utility.tapp "P" [t_x; t_g1; t_b]  (* P('x, g(...), b) *)
-let t_P5 = Term_utility.tapp "P" [t_x; t_W12; t_b]  (* P('x, W.'z, b) *)
-let t_P6 = Term_utility.tapp "P" [t_a; t_a; t_b]  (* P(a, a, b) *)
-let t_P7 = Term_utility.tapp "P" [t_K; t_K; t_b]  (* P(K.#1, K.#1, b) *)
-let t_P8 = Term_utility.tapp "P" [t_x; t_c; t_b]  (* P('x, c, b) *)
-let t_P9 = Term_utility.tapp "P" [t_x; t_W13; t_b]  (* P('x, W.P(...), b) *)
-let t_Wq = Term_utility.tbind "W" t_Pq  (* W.P('x, ?Y, b) *)
-let t_W1 = Term_utility.tbind "W" t_P1  (* W.P(a, ?Y, b) *)
-let t_W2 = Term_utility.tbind "W" t_P2  (* W.P(g(...), ?Y, b) *)
-let t_W3 = Term_utility.tbind "W" t_P3  (* W.P('x, K.#1, b) *)
-let t_W4 = Term_utility.tbind "W" t_P4  (* W.P('x, g(...), 'z) *)
-let t_W5 = Term_utility.tbind "W" t_P5  (* W.P('x, W.'z, b) *)
-let t_W6 = Term_utility.tbind "W" t_P6  (* W.P(a, a, b) *)
-let t_W7 = Term_utility.tbind "W" t_P7  (* W.P(K.#1, K.#1, b) *)
-let t_W8 = Term_utility.tbind "W" t_P8  (* W.P('x, c, b) *)
-let t_W9 = Term_utility.tbind "W" t_P9  (* W.P('x, W.P(...), b) *)
-let t_fq = Term_utility.tapp "f" [t_a; t_Wq; t_z]  (* f(a, W.P(...), 'z) *)
-let t_f1 = Term_utility.tapp "f" [t_a; t_W1; t_z]  (* f(a, W.P(...), 'z) *)
-let t_f2 = Term_utility.tapp "f" [t_a; t_W1; t_c]  (* f(a, W.P(...), c) *)
-let t_f3 = Term_utility.tapp "f" [t_a; t_Wq; t_c]  (* f(a, W.P(...), c) *)
-let t_f4 = Term_utility.tapp "f" [t_a; t_W2; t_g2]  (* f(a, W.P(g(?Y, c, 'z), ?Y, b), g(?Y, c, 'x)) *)
-let t_f5 = Term_utility.tapp "f" [t_a; t_W3; t_z]  (* f(a, W.P('x, K.#1, b), 'z) *)
-let t_f6 = Term_utility.tapp "f" [t_a; t_W4; t_z]  (* f(a, W.P('x, g(?Y, c, 'z), 'z), 'z) *)
-let t_f7 = Term_utility.tapp "f" [t_a; t_W5; t_z]  (* f(a, W.P('x, W.'z, b), 'z) *)
-let t_f8 = Term_utility.tapp "f" [t_a; t_W6; t_a]  (* f(a, W.P(a, a, b), a) *)
-let t_f9 = Term_utility.tapp "f" [t_a; t_W7; t_Y]  (* f(a, W.P(K.#1, K.#1, b), ?Y) *)
-let t_f10 = Term_utility.tapp "f" [t_a; t_W8; t_z]  (* f(a, W.P('x, c, b), 'z) *)
-let t_f11 = Term_utility.tapp "f" [t_a; t_W9; t_z]  (* f(a, W.P('x, W.P(?Y, #0, 'z), b), 'z *)
+let bvar = Term_utility.tbvar
+let fvar = Term_utility.tfvar
+let mvar = Term_utility.tmvar
+let app = Term_utility.tapp
+let bind = Term_utility.tbind
+let const = Term_utility.tconst
+
+let a = const "a"
+let b = const "b"
+let c = const "c"
+let _0 = bvar 0
+let _1 = bvar 1
+let x = fvar "x"
+let z = fvar "z"
+let y = mvar "Y"
+let k = bind "K"
+let p = app "P"
+let g = app "g"
+let w = bind "W"
+let wp ts = w (p ts)
+let f = app "f"
+
+(* f(a, W.P('x, ?Y, b), 'z) *)
+let t_fq = f [a; wp [x; y; b]; z]
+
+(* f(a, W.P(a, ?Y, b), 'z) *)
+let t_f1 = f [a; wp [a; y; b]; z]
+
+(* f(a, W.P(a, ?Y, b), c) *)
+let t_f2 = f [a; wp [a; y; b]; c]
+
+(* f(a, W.P('x, ?Y, b), c) *)
+let t_f3 = f [a; wp [x; y; b]; c]
+
+(* f(a, W.P(g(?Y, c, 'z), ?Y, b), g(?Y, c, 'x)) *)
+let t_f4 = f [a; wp [g [y; c; z]; y; b]; g [y; c; x]]
+
+(* f(a, W.P('x, K.#1, b), 'z) *)
+let t_f5 = f [a; wp [x; k _1; b]; z]
+
+(* f(a, W.P('x, g(?Y, c, 'z), b), 'z) *)
+let t_f6 = f [a; wp [x; g [y; c; z]; b]; z]
+
+(* f(a, W.P('x, W.'z, b), 'z) *)
+let t_f7 = f [a; wp [x; w z; b]; z]
+
+(* f(a, W.P(a, a, b), a) *)
+let t_f8 = f [a; wp [a; a; b]; a]
+
+(* f(a, W.P(K.#1, K.#1, b), ?Y) *)
+let t_f9 = f [a; wp [k _1; k _1; b]; y]
+
+(* f(a, W.P('x, c, b), 'z) *)
+let t_f10 = f [a; wp [x; c; b]; z]
+
+(* f(a, W.P('x, W.P(?Y, #0, 'z), b), 'z) *)
+let t_f11 = f [a; wp [x; wp [y; _0; z]; b]; z]
 
 let templates = [
   t_fq;
@@ -79,75 +90,30 @@ let templates = [
   t_f9;
   t_f10;
   t_f11;
-  t_a;
-  t_b;
-  t_c;
-  t_0;
-  t_1;
-  t_x;
-  t_z;
-  t_Y;
-  t_K;
-  t_g1;
-  t_g2;
-  t_P10;
-  t_W12;
-  t_W13;
-  t_Pq;
-  t_P1;
-  t_P2;
-  t_P3;
-  t_P4;
-  t_P5;
-  t_P6;
-  t_P7;
-  t_P8;
-  t_P9;
-  t_Wq;
-  t_W1;
-  t_W2;
-  t_W3;
-  t_W4;
-  t_W5;
-  t_W6;
-  t_W7;
-  t_W8;
-  t_W9;
 ]
 
 let (terms, _factory1) = Term_utility.create_many (List.to_seq templates) Term.empty_factory
-let indexed_terms = [
-  List.nth terms 1;
-  List.nth terms 2;
-  List.nth terms 3;
-  List.nth terms 4;
-  List.nth terms 5;
-  List.nth terms 6;
-  List.nth terms 7;
-  List.nth terms 8;
-  List.nth terms 9;
-  List.nth terms 10;
-  List.nth terms 11;
-]
+
+let indexed_terms = Seq.drop 1 (List.to_seq terms)
 
 (* let () =
   Printf.printf "indexed_terms: {\n%s\n}\n"
     (String.concat "\n" (List.map Term.string_of_full indexed_terms))
 ;; *)
 
-let i_f1 = List.nth indexed_terms 0
-let i_f2 = List.nth indexed_terms 1
-let i_f3 = List.nth indexed_terms 2
-let i_f4 = List.nth indexed_terms 3
-let i_f5 = List.nth indexed_terms 4
-let i_f6 = List.nth indexed_terms 5
-let i_f7 = List.nth indexed_terms 6
-let i_f8 = List.nth indexed_terms 7
-let i_f9 = List.nth indexed_terms 8
-let i_f10 = List.nth indexed_terms 9
-let i_f11 = List.nth indexed_terms 10
-let query = List.hd terms
-let index = Term_index.add_terms Term_index.empty (List.to_seq indexed_terms)
+let query = List.nth terms 0
+let i_f1 = List.nth terms 1
+let i_f2 = List.nth terms 2
+let i_f3 = List.nth terms 3
+let i_f4 = List.nth terms 4
+let i_f5 = List.nth terms 5
+let i_f6 = List.nth terms 6
+let i_f7 = List.nth terms 7
+let i_f8 = List.nth terms 8
+let i_f9 = List.nth terms 9
+let i_f10 = List.nth terms 10
+let i_f11 = List.nth terms 11
+let index = Term_index.add_terms Term_index.empty indexed_terms
 let instances_f = Term_index.retrieve_instances index query (Term.make_substitutability ~fvar:true ~mvar:false)
 let instances_m = Term_index.retrieve_instances index query (Term.make_substitutability ~fvar:false ~mvar:true)
 let instances_fm = Term_index.retrieve_instances index query (Term.make_substitutability ~fvar:true ~mvar:true)
